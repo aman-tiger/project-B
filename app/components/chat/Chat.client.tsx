@@ -131,18 +131,32 @@ export const ChatImpl = memo(
     const currentChatId = useStore(chatId);
     const [planMode, setPlanMode] = useState(false);
     const skipNextPlanModeSave = useRef(false);
+    const prevChatIdRef = useRef<string | undefined>(undefined);
+    const planModeRef = useRef(planMode);
+    planModeRef.current = planMode;
+
     const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
     const mcpSettings = useStore(mcpStore).settings;
 
-    // Restore plan mode from localStorage when chat changes
+    // Restore plan mode from localStorage when chat changes, or carry over pre-chat state
     useEffect(() => {
+      const wasNewChat = prevChatIdRef.current === undefined && !!currentChatId;
+      prevChatIdRef.current = currentChatId;
+
       if (!currentChatId) {
-        setPlanMode(false);
-        skipNextPlanModeSave.current = false;
+        // No chat yet — keep current planMode state so toggling before chat creation works
+        return;
+      }
+
+      if (wasNewChat && planModeRef.current) {
+        // New chat was just created and plan mode was toggled ON before — carry it over
+        setProjectPlanMode(currentChatId, { enabled: true });
+        skipNextPlanModeSave.current = true;
 
         return;
       }
 
+      // Switching between existing chats or navigating to an existing chat — restore
       skipNextPlanModeSave.current = true;
 
       const settings = getProjectPlanMode(currentChatId);
@@ -537,7 +551,7 @@ export const ChatImpl = memo(
       if (!chatStarted) {
         setFakeLoading(true);
 
-        if (autoSelectTemplate) {
+        if (autoSelectTemplate && !planMode) {
           const { template, title } = await selectStarterTemplate({
             message: finalMessageContent,
             model,

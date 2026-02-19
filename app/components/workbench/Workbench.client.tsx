@@ -30,6 +30,7 @@ import { ExportChatButton } from '~/components/chat/chatExportAndImport/ExportCh
 import { useChatHistory } from '~/lib/persistence';
 import { streamingState } from '~/lib/stores/streaming';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { usePlanSync } from '~/lib/hooks/usePlanSync';
 
 const workbenchLogger = createScopedLogger('Workbench');
 
@@ -87,6 +88,9 @@ export const Workbench = memo(
     const selectedView = useStore(workbenchStore.currentView);
     const { showChat } = useStore(chatStore);
     const canHideChat = showWorkbench || !showChat;
+
+    // Sync PLAN.md content from project files into the plan store
+    usePlanSync(files);
 
     const isSmallViewport = useViewport(1024);
     const streaming = useStore(streamingState);
