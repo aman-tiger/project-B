@@ -21,7 +21,7 @@ export default class LMStudioProvider extends BaseProvider {
   async getDynamicModels(
     apiKeys?: Record<string, string>,
     settings?: IProviderSetting,
-    serverEnv: Record<string, string> = {},
+    serverEnv: Record<string, string | undefined> = {},
   ): Promise<ModelInfo[]> {
     let { baseUrl } = this.getProviderBaseUrlAndKey({
       apiKeys,

@@ -66,12 +66,12 @@ export default class FireworksProvider extends BaseProvider {
   async getDynamicModels(
     apiKeys?: Record<string, string>,
     settings?: IProviderSetting,
-    serverEnv?: Record<string, string>,
+    serverEnv?: Record<string, string | undefined>,
   ): Promise<ModelInfo[]> {
     const { apiKey } = this.getProviderBaseUrlAndKey({
       apiKeys,
       providerSettings: settings,
-      serverEnv: serverEnv as any,
+      serverEnv,
       defaultBaseUrlKey: '',
       defaultApiTokenKey: 'FIREWORKS_API_KEY',
     });
@@ -128,7 +128,7 @@ export default class FireworksProvider extends BaseProvider {
     const { apiKey } = this.getProviderBaseUrlAndKey({
       apiKeys,
       providerSettings: providerSettings?.[this.name],
-      serverEnv: serverEnv as any,
+      serverEnv,
       defaultBaseUrlKey: '',
       defaultApiTokenKey: 'FIREWORKS_API_KEY',
     });
@@ -141,6 +141,6 @@ export default class FireworksProvider extends BaseProvider {
       apiKey,
     });
 
-    return fireworks(model);
+    return fireworks(model) as unknown as LanguageModelV1;
   }
 }

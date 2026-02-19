@@ -21,7 +21,7 @@ export default class OpenAILikeProvider extends BaseProvider {
   async getDynamicModels(
     apiKeys?: Record<string, string>,
     settings?: IProviderSetting,
-    serverEnv: Record<string, string> = {},
+    serverEnv: Record<string, string | undefined> = {},
   ): Promise<ModelInfo[]> {
     const { baseUrl, apiKey } = this.getProviderBaseUrlAndKey({
       apiKeys,

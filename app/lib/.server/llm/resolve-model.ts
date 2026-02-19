@@ -31,7 +31,7 @@ export async function resolveModel(options: ResolveModelOptions): Promise<ModelI
       ...(await LLMManager.getInstance().getModelListFromProvider(provider, {
         apiKeys,
         providerSettings,
-        serverEnv: serverEnv as unknown as Record<string, string>,
+        serverEnv,
       })),
     ];
 

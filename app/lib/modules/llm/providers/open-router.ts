@@ -53,7 +53,7 @@ export default class OpenRouterProvider extends BaseProvider {
   async getDynamicModels(
     _apiKeys?: Record<string, string>,
     _settings?: IProviderSetting,
-    _serverEnv: Record<string, string> = {},
+    _serverEnv: Record<string, string | undefined> = {},
   ): Promise<ModelInfo[]> {
     try {
       const response = await fetch('https://openrouter.ai/api/v1/models', {

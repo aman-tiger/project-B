@@ -100,12 +100,12 @@ export default class ZaiProvider extends BaseProvider {
   async getDynamicModels(
     apiKeys?: Record<string, string>,
     settings?: IProviderSetting,
-    serverEnv?: Record<string, string>,
+    serverEnv?: Record<string, string | undefined>,
   ): Promise<ModelInfo[]> {
     const { baseUrl, apiKey } = this.getProviderBaseUrlAndKey({
       apiKeys,
       providerSettings: settings,
-      serverEnv: serverEnv as any,
+      serverEnv,
       defaultBaseUrlKey: 'ZAI_BASE_URL',
       defaultApiTokenKey: 'ZAI_API_KEY',
     });
@@ -231,7 +231,7 @@ export default class ZaiProvider extends BaseProvider {
     const { baseUrl, apiKey } = this.getProviderBaseUrlAndKey({
       apiKeys,
       providerSettings: providerSettings?.[this.name],
-      serverEnv: serverEnv as any,
+      serverEnv,
       defaultBaseUrlKey: 'ZAI_BASE_URL',
       defaultApiTokenKey: 'ZAI_API_KEY',
     });
