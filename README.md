@@ -49,6 +49,8 @@ pnpm run dev
 - **MCP tools** — extend the agent with Model Context Protocol servers for specialized workflows.
 - **Auto-fix** — terminal error detection catches failures and patches them automatically.
 - **Image context** — attach screenshots or design files to prompts for visual understanding.
+- **Design Palette** — pick custom color themes that get injected into AI-generated apps.
+- **3D support** — generate React Three Fiber apps with automatic version pinning and peer dependency resolution.
 - **Template gallery** — start from popular frameworks and boilerplates, then customize with AI.
 - **State-of-the-art AI SDK** — built on the Vercel AI SDK for best-in-class LLM performance and reliability.
 
@@ -66,6 +68,8 @@ pnpm run dev
 - **MCP Schema Sanitization** — Automatic schema compatibility for Google Gemini (strips unsupported constructs)
 - **MCP Auto-Approve** — Per-server auto-approve toggle for trusted MCP servers
 - **Formatted Tool Results** — MCP tool results render as formatted markdown instead of raw JSON
+- **Design Palette** — UI for picking custom color themes injected into generated code
+- **3D App Generation** — React Three Fiber support with automatic version pinning for React 18/19
 
 **Development Environment**
 - In-browser code editor (CodeMirror) with syntax highlighting
