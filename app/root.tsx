@@ -52,6 +52,26 @@ export const links: LinksFunction = () => [
     crossOrigin: 'anonymous',
   },
   {
+    rel: 'dns-prefetch',
+    href: 'https://cdn.simpleicons.org',
+  },
+  {
+    rel: 'dns-prefetch',
+    href: 'https://api.github.com',
+  },
+  {
+    rel: 'dns-prefetch',
+    href: 'https://api.netlify.com',
+  },
+  {
+    rel: 'dns-prefetch',
+    href: 'https://gitlab.com',
+  },
+  {
+    rel: 'dns-prefetch',
+    href: 'https://vercel.com',
+  },
+  {
     rel: 'stylesheet',
     href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
   },
