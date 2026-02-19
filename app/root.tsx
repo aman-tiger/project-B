@@ -33,6 +33,10 @@ export const links: LinksFunction = () => [
     rel: 'apple-touch-icon',
     href: '/apple-touch-icon.png',
   },
+  {
+    rel: 'manifest',
+    href: '/manifest.json',
+  },
   { rel: 'stylesheet', href: reactToastifyStyles },
   { rel: 'stylesheet', href: tailwindReset },
   { rel: 'stylesheet', href: globalStyles },
