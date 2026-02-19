@@ -84,17 +84,26 @@ export const getFineTunedPrompt = (
   or any Three.js-related functionality:
 
   ALWAYS prefer React Three Fiber (@react-three/fiber) and its ecosystem.
-  CRITICAL: Use these EXACT package versions — do NOT invent version numbers:
-    - three@^0.183.0 — Three.js core (ALWAYS include as dependency)
-    - @react-three/fiber@^9.5.0 — Core React renderer for Three.js
-    - @react-three/drei@^10.7.7 — Useful helpers, controls, abstractions
-    - @react-three/postprocessing@^3.0.4 — Post-processing effects (bloom, vignette, etc.)
-    - @react-three/rapier — Physics engine integration
+
+  CRITICAL VERSION RULES — do NOT invent version numbers:
+  For React 18 projects (default for most Vite templates):
+    - three@^0.170.0 — Three.js core (ALWAYS include as dependency)
+    - @react-three/fiber@^8.18.0 — R3F v8 for React 18 (DO NOT use v9 with React 18!)
+    - @react-three/drei@^9.122.0 — Helpers for R3F v8
     - react-error-boundary@^5.0.0 — Error boundary for graceful 3D fallbacks (ALWAYS include)
+  For React 19 projects only:
+    - three@^0.183.0
+    - @react-three/fiber@^9.5.0 — R3F v9 requires React 19
+    - @react-three/drei@^10.7.7
+    - react-error-boundary@^5.0.0
+
+  CRITICAL: R3F v9 is INCOMPATIBLE with React 18. Using v9 with React 18 causes:
+    "TypeError: Cannot read properties of undefined (reading 'ReactCurrentOwner')"
+  If the project uses React 18 (check package.json), you MUST use R3F v8 + drei v9.
 
   CRITICAL DEPENDENCY RULE: Every package you import in code MUST be in package.json.
   Before writing ANY import statement, verify the package is listed in dependencies or devDependencies.
-  Install command: npm install three @react-three/fiber @react-three/drei react-error-boundary
+  Install command (React 18): npm install three@^0.170.0 @react-three/fiber@^8.18.0 @react-three/drei@^9.122.0 react-error-boundary
 
   R3F Best Practices:
     - Use declarative JSX for the scene graph (<Canvas>, <mesh>, <ambientLight>, etc.)
@@ -102,6 +111,8 @@ export const getFineTunedPrompt = (
     - Use React.lazy() + Suspense for 3D scenes to handle loading gracefully
     - Wrap 3D content in an ErrorBoundary (from react-error-boundary) for graceful fallback
     - ALWAYS ensure "vite" is in devDependencies when creating Vite projects
+    - Add 'three' to vite.config.ts optimizeDeps.include for proper pre-bundling:
+      optimizeDeps: { include: ['three', '@react-three/fiber', '@react-three/drei'] }
     - Reference: https://r3f.docs.pmnd.rs/getting-started/introduction
 
   When R3F is NOT suitable (use alternatives instead):
