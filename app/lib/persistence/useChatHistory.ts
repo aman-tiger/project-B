@@ -299,7 +299,7 @@ export function useChatHistory() {
           await shell.ready();
 
           logger.info('Auto-rebuild: Installing dependencies...');
-          const installResult = await shell.executeCommand('auto-rebuild-install', 'npm install');
+          const installResult = await shell.executeCommand('auto-rebuild-install', 'npm install --legacy-peer-deps');
 
           if (installResult && installResult.exitCode !== 0) {
             logger.error('Auto-rebuild: npm install failed with exit code', installResult.exitCode);

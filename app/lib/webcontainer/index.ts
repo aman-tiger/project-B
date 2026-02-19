@@ -35,6 +35,13 @@ if (!import.meta.env.SSR) {
       .then(async (webcontainer) => {
         webcontainerContext.loaded = true;
 
+        // Inject .npmrc to prevent peer dependency conflicts (e.g. @react-three/fiber)
+        await webcontainer.fs.writeFile(
+          '.npmrc',
+          'legacy-peer-deps=true\nyes=true\nfund=false\naudit=false\nloglevel=error\n',
+        );
+        logger.debug('Injected .npmrc with legacy-peer-deps=true');
+
         const response = await fetch('/inspector-script.js');
         const inspectorScript = await response.text();
         await webcontainer.setPreviewScript(inspectorScript);

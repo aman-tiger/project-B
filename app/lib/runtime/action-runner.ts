@@ -362,6 +362,12 @@ export class ActionRunner {
       action.content = repairResult.command;
     }
 
+    // Inject --legacy-peer-deps into npm install commands to prevent peer dep conflicts
+    if (/^npm\s+install\b/.test(action.content.trim()) && !action.content.includes('--legacy-peer-deps')) {
+      action.content = action.content.trim().replace(/^(npm\s+install)/, '$1 --legacy-peer-deps');
+      logger.debug('Injected --legacy-peer-deps into npm install command');
+    }
+
     // Pre-validate command for common issues
     const validationResult = await this.#validateShellCommand(action.content);
 
