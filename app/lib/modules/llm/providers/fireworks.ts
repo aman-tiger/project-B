@@ -3,6 +3,9 @@ import type { ModelInfo } from '~/lib/modules/llm/types';
 import type { IProviderSetting } from '~/types/model';
 import type { LanguageModelV1 } from 'ai';
 import { createFireworks } from '@ai-sdk/fireworks';
+import { createScopedLogger } from '~/utils/logger';
+
+const logger = createScopedLogger('Fireworks');
 
 export default class FireworksProvider extends BaseProvider {
   name = 'Fireworks';
@@ -89,7 +92,7 @@ export default class FireworksProvider extends BaseProvider {
       });
 
       if (!response.ok) {
-        console.error(`Fireworks API error: ${response.statusText}`);
+        logger.error(`Fireworks API error: ${response.statusText}`);
         return [];
       }
 
@@ -112,7 +115,7 @@ export default class FireworksProvider extends BaseProvider {
 
       return dynamicModels;
     } catch (error) {
-      console.error(`Failed to fetch Fireworks models:`, error);
+      logger.error(`Failed to fetch Fireworks models:`, error);
       return [];
     }
   }

@@ -2,8 +2,10 @@ import { json } from '@remix-run/node';
 import type { ActionFunctionArgs } from '@remix-run/node';
 import { withSecurity } from '~/lib/security';
 import { isAllowedUrl } from '~/utils/url';
+import { createScopedLogger } from '~/utils/logger';
 
 const MAX_CONTENT_LENGTH = 8000;
+const logger = createScopedLogger('WebSearch');
 
 const FETCH_HEADERS = {
   'User-Agent':
@@ -98,7 +100,7 @@ async function webSearchAction({ request }: ActionFunctionArgs) {
       return json({ error: 'Request timed out after 10 seconds' }, { status: 504 });
     }
 
-    console.error('Web search error:', error);
+    logger.error('Web search error:', error);
 
     return json({ error: error instanceof Error ? error.message : 'Failed to fetch URL' }, { status: 500 });
   }
