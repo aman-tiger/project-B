@@ -101,12 +101,13 @@ describe('settings store', () => {
       });
     });
 
-    it('should have non-local providers enabled by default', () => {
+    it('should have non-local providers disabled by default when no API key is set', () => {
       const providers = providersStore.get();
 
       Object.entries(providers).forEach(([name, provider]) => {
         if (!LOCAL_PROVIDERS.includes(name)) {
-          expect(provider.settings.enabled).toBe(true);
+          // Without an API key cookie, cloud providers default to disabled
+          expect(provider.settings.enabled).toBe(false);
         }
       });
     });
