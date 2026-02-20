@@ -16,29 +16,31 @@ interface FileContent {
   path: string;
 }
 
-// Helper function to make any command non-interactive
+/**
+ * Make a command non-interactive for WebContainer execution.
+ *
+ * NOTE: We intentionally do NOT add env var exports or extra npm flags here.
+ * WebContainer's `.npmrc` (injected at boot) already has:
+ *   legacy-peer-deps=true, yes=true, fund=false, audit=false, loglevel=error
+ *
+ * Adding `export CI=true ...` prefix breaks jsh (WebContainer shell) and
+ * also prevents the action runner's --legacy-peer-deps injection regex
+ * from matching (it expects commands to start with `npm install`).
+ */
 function makeNonInteractive(command: string): string {
-  // Set environment variables for non-interactive mode
-  const envVars = 'export CI=true DEBIAN_FRONTEND=noninteractive FORCE_COLOR=0';
-
-  // Common interactive packages and their non-interactive flags
   const interactivePackages = [
-    { pattern: /npx\s+([^@\s]+@?[^\s]*)\s+init/g, replacement: 'echo "y" | npx --yes $1 init --defaults --yes' },
-    { pattern: /npx\s+create-([^\s]+)/g, replacement: 'npx --yes create-$1 --template default' },
-    { pattern: /npx\s+([^@\s]+@?[^\s]*)\s+add/g, replacement: 'npx --yes $1 add --defaults --yes' },
-    { pattern: /npm\s+install(?!\s+--)/g, replacement: 'npm install --yes --no-audit --no-fund --silent' },
-    { pattern: /yarn\s+add(?!\s+--)/g, replacement: 'yarn add --non-interactive' },
-    { pattern: /pnpm\s+add(?!\s+--)/g, replacement: 'pnpm add --yes' },
+    { pattern: /npx\s+([^@\s]+@?[^\s]*)\s+init/g, replacement: 'npx --yes $1 init --defaults' },
+    { pattern: /npx\s+create-([^\s]+)/g, replacement: 'npx --yes create-$1' },
+    { pattern: /npx\s+([^@\s]+@?[^\s]*)\s+add/g, replacement: 'npx --yes $1 add --defaults' },
   ];
 
   let processedCommand = command;
 
-  // Apply replacements for known interactive patterns
   interactivePackages.forEach(({ pattern, replacement }) => {
     processedCommand = processedCommand.replace(pattern, replacement);
   });
 
-  return `${envVars} && ${processedCommand}`;
+  return processedCommand;
 }
 
 export async function detectProjectCommands(files: FileContent[]): Promise<ProjectCommands> {
@@ -69,21 +71,58 @@ export async function detectProjectCommands(files: FileContent[]): Promise<Proje
       const availableCommand = preferredCommands.find((cmd) => scripts[cmd]);
 
       // Build setup command with non-interactive handling
-      let baseSetupCommand = 'npx update-browserslist-db@latest && npm install';
+      let baseSetupCommand = 'npm install';
 
-      // Add shadcn init if it's a shadcn project
-      if (isShadcnProject) {
+      /*
+       * Only run shadcn init if this is a NEW shadcn project (no existing ui components).
+       * For imported/cloned templates, components are already present so init is skipped.
+       */
+      const hasExistingComponents = files.some((f) => f.path.includes('components/ui/') && f.path.endsWith('.tsx'));
+
+      if (isShadcnProject && !hasExistingComponents) {
         baseSetupCommand += ' && npx shadcn@latest init';
       }
 
       const setupCommand = makeNonInteractive(baseSetupCommand);
 
       if (availableCommand) {
+        /*
+         * Use the script content to build a more reliable start command.
+         * WebContainer's jsh shell often fails to find binaries from npm scripts
+         * (e.g., "jsh: command not found: next") because node_modules/.bin
+         * isn't always on PATH. Using npx ensures the binary is always found.
+         */
+        const scriptContent = scripts[availableCommand] || '';
+        let startCommand = `npm run ${availableCommand}`;
+
+        // For known framework binaries, use npx for reliable resolution
+        const frameworkBinaries: Record<string, string> = {
+          next: 'npx next',
+          vite: 'npx vite',
+          nuxt: 'npx nuxt',
+          remix: 'npx remix',
+          astro: 'npx astro',
+        };
+
+        for (const [binary, npxCommand] of Object.entries(frameworkBinaries)) {
+          if (scriptContent.startsWith(`${binary} `)) {
+            // Replace the binary with npx variant, keep the rest of the args
+            const args = scriptContent.slice(binary.length);
+            startCommand = `${npxCommand}${args}`;
+            break;
+          }
+
+          if (scriptContent === binary) {
+            startCommand = npxCommand;
+            break;
+          }
+        }
+
         return {
           type: 'Node.js',
           setupCommand,
-          startCommand: `npm run ${availableCommand}`,
-          followupMessage: `Found "${availableCommand}" script in package.json. Running "npm run ${availableCommand}" after installation.`,
+          startCommand,
+          followupMessage: `Found "${availableCommand}" script in package.json. Running "${startCommand}" after installation.`,
         };
       }
 

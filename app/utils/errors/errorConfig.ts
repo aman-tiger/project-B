@@ -116,6 +116,28 @@ export const SUPPRESSION_PATTERNS: Array<{
     reason: 'Missing favicon is non-critical',
     categories: ['preview', 'network'],
   },
+
+  // React hydration mismatches (common in WebContainer, page still renders)
+  {
+    pattern: /Text content does not match server-rendered HTML/i,
+    reason: 'Hydration mismatches self-recover; page renders correctly',
+    categories: ['preview'],
+  },
+  {
+    pattern: /Hydration failed because.*initial UI.*does not match/i,
+    reason: 'Hydration mismatch — React recovers and renders correctly',
+    categories: ['preview'],
+  },
+  {
+    pattern: /There was an error while hydrating/i,
+    reason: 'Hydration error — React falls back to client rendering',
+    categories: ['preview'],
+  },
+  {
+    pattern: /InvariantError.*workUnitAsyncStorage/i,
+    reason: 'Next.js 15+ async storage issue in WebContainer — page may still render',
+    categories: ['preview'],
+  },
 ];
 
 /**
