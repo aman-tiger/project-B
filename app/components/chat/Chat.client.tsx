@@ -792,6 +792,9 @@ export const ChatImpl = memo(
             `Implement each task in order, creating files, writing code, and running commands as needed. ` +
             `After completing each step, update PLAN.md to mark it done with \`- [x]\`.`;
 
+          // Switch from plan mode to build mode — planning is done, execution begins
+          setPlanMode(false);
+
           runAnimation();
 
           appendRef.current({
