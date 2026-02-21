@@ -175,8 +175,16 @@ export class LocalFileSystem implements RuntimeFileSystem {
         // Normalize path separators
         const normalizedPath = filename.replace(/\\/g, '/');
 
-        // Simple glob matching for `**/*` (match all)
-        // More sophisticated glob matching can be added later
+        // Skip node_modules, .git, and other noisy directories
+        if (
+          normalizedPath.startsWith('node_modules/') ||
+          normalizedPath.startsWith('.git/') ||
+          normalizedPath.includes('/node_modules/') ||
+          normalizedPath.includes('/.git/')
+        ) {
+          return;
+        }
+
         if (glob !== '**/*' && glob !== '*') {
           // Basic extension matching: `*.ts` → ends with .ts
           if (glob.startsWith('*.')) {

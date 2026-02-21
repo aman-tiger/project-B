@@ -707,6 +707,11 @@ export class FilesStore {
       /* Remove any trailing slashes */
       const sanitizedPath = event.path.replace(/\/+$/g, '');
 
+      // Skip node_modules and .git — handled server-side too, but belt-and-suspenders
+      if (sanitizedPath.includes('node_modules') || sanitizedPath.includes('.git')) {
+        continue;
+      }
+
       switch (event.type) {
         case 'addDir': {
           this.files.setKey(sanitizedPath, { type: 'folder' });
@@ -747,9 +752,27 @@ export class FilesStore {
    * Used by the watch handler when file content is not provided inline.
    */
   async #readAndSetFile(filePath: string) {
+    // Skip node_modules and .git — these are noisy and not user-editable
+    if (filePath.includes('node_modules') || filePath.includes('/.git/') || filePath.includes('\\.git\\')) {
+      return;
+    }
+
     try {
       const runtime = await this.#runtime;
       const relativePath = toRelativePath(runtime.workdir, filePath);
+
+      // Verify it's actually a file (not a directory) before reading
+      try {
+        const stat = await runtime.fs.stat(relativePath);
+
+        if (stat.isDirectory) {
+          return;
+        }
+      } catch {
+        // stat failed — file may have been deleted between watch event and read
+        return;
+      }
+
       const buffer = await runtime.fs.readFileRaw(relativePath);
 
       /**
@@ -763,6 +786,13 @@ export class FilesStore {
 
       this.files.setKey(filePath, { type: 'file', content, isBinary });
     } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+
+      // EISDIR (tried to read a directory) and ENOENT (file deleted) are expected during watch
+      if (code === 'EISDIR' || code === 'ENOENT') {
+        return;
+      }
+
       logger.warn(`Failed to read file during watch: ${filePath}`, error);
     }
   }
