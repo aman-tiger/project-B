@@ -76,6 +76,7 @@ const REACT_EXTRA_PACKAGES: Record<string, string> = {
   'lucide-react': '^0.460.0',
   'react-router-dom': '^7.1.1',
   zustand: '^5.0.3',
+  immer: '^10.1.1',
   '@tanstack/react-query': '^5.62.16',
   'react-hook-form': '^7.54.2',
   '@hookform/resolvers': '^3.9.1',
@@ -87,6 +88,23 @@ const REACT_EXTRA_PACKAGES: Record<string, string> = {
 const COMMON_EXTRA_PACKAGES: Record<string, string> = {
   ...UNIVERSAL_EXTRA_PACKAGES,
   ...REACT_EXTRA_PACKAGES,
+};
+
+/**
+ * Vue-specific packages that LLMs frequently import in Vue projects.
+ * Only injected into Vue-family templates.
+ */
+const VUE_EXTRA_PACKAGES: Record<string, string> = {
+  pinia: '^3.0.1',
+  '@vueuse/core': '^12.5.0',
+};
+
+/**
+ * Combined packages for Vue-family templates (universal + Vue-specific).
+ */
+const VUE_COMBINED_PACKAGES: Record<string, string> = {
+  ...UNIVERSAL_EXTRA_PACKAGES,
+  ...VUE_EXTRA_PACKAGES,
 };
 
 interface PromptTemplate {
@@ -334,6 +352,41 @@ function injectCommonPackages(files: Array<{ name: string; path: string; content
 }
 
 /**
+ * Inject Vue-specific + universal packages into Vue-family templates.
+ * Adds pinia, @vueuse/core, date-fns, axios, zod.
+ */
+function injectVuePackages(files: Array<{ name: string; path: string; content: string }>): void {
+  const pkgJsonFile = files.find((f) => f.path === 'package.json' || f.name === 'package.json');
+
+  if (!pkgJsonFile) {
+    return;
+  }
+
+  try {
+    const pkgJson = JSON.parse(pkgJsonFile.content);
+    const deps = pkgJson.dependencies || {};
+    const devDeps = pkgJson.devDependencies || {};
+    const allExistingDeps = { ...deps, ...devDeps };
+    let injectedCount = 0;
+
+    for (const [pkg, version] of Object.entries(VUE_COMBINED_PACKAGES)) {
+      if (!allExistingDeps[pkg] && !deps[pkg]) {
+        deps[pkg] = version;
+        injectedCount++;
+      }
+    }
+
+    if (injectedCount > 0) {
+      pkgJson.dependencies = deps;
+      pkgJsonFile.content = JSON.stringify(pkgJson, null, 2);
+      logger.info(`Injected ${injectedCount} Vue + universal packages into template package.json`);
+    }
+  } catch (error) {
+    logger.error('Failed to inject Vue packages:', error);
+  }
+}
+
+/**
  * Inject only framework-agnostic universal packages (date-fns, axios, zod)
  * into non-React JSX templates like SolidJS and Qwik. Avoids adding
  * React-specific dependencies that would be unused and confusing.
@@ -381,6 +434,17 @@ const REACT_TEMPLATE_KEYWORDS = ['react', 'next', 'remix', 'shadcn'];
 function isReactFamily(templateName: string): boolean {
   const lower = templateName.toLowerCase();
   return REACT_TEMPLATE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+const VUE_TEMPLATE_KEYWORDS = ['vue'];
+
+/**
+ * Returns true when `templateName` is a Vue-family framework.
+ * Excludes Slidev (presentation framework) which is Vue-based but not a general Vue app.
+ */
+function isVueFamily(templateName: string): boolean {
+  const lower = templateName.toLowerCase();
+  return VUE_TEMPLATE_KEYWORDS.some((kw) => lower.includes(kw)) && !lower.includes('slidev');
 }
 
 export async function getTemplates(templateName: string, title?: string) {
@@ -483,16 +547,18 @@ export async function getTemplates(templateName: string, title?: string) {
    * ——— Step 3: Inject dependencies ———
    * - Shadcn templates: inject peer deps + React common + universal packages
    * - Other React-family templates: inject React common + universal packages
-   * - JSX non-React (Solid, Qwik): inject universal packages only
-   * - All other frameworks (Vue, Svelte, Astro, Angular, etc.): inject universal packages
+   * - Vue-family templates: inject Vue-specific + universal packages
+   * - All other frameworks (Svelte, Astro, Angular, Solid, Qwik, etc.): inject universal packages
    */
   if (resolvedName.toLowerCase().includes('shadcn')) {
     injectShadcnPeerDeps(files);
   } else if (isReactFamily(resolvedName)) {
     injectCommonPackages(files);
+  } else if (isVueFamily(resolvedName)) {
+    injectVuePackages(files);
   } else {
     /*
-     * All non-React templates (Vue, Svelte, Astro, Angular, Solid, Qwik, etc.)
+     * All other templates (Svelte, Astro, Angular, Solid, Qwik, Slidev, etc.)
      * get framework-agnostic universal packages (date-fns, axios, zod)
      */
     injectUniversalPackages(files);
@@ -619,15 +685,26 @@ ${resolvedName.toLowerCase().includes('shadcn') ? `- Shadcn/ui template: Radix U
     }
   }
 
+  // Build a concise hint of pre-installed packages so the LLM uses them
+  let availablePackageHint: string;
+
+  if (resolvedName.toLowerCase().includes('shadcn')) {
+    availablePackageHint = `shadcn/ui peer deps, ${Object.keys(COMMON_EXTRA_PACKAGES).join(', ')}`;
+  } else if (isReactFamily(resolvedName)) {
+    availablePackageHint = Object.keys(COMMON_EXTRA_PACKAGES).join(', ');
+  } else if (isVueFamily(resolvedName)) {
+    availablePackageHint = Object.keys(VUE_COMBINED_PACKAGES).join(', ');
+  } else {
+    availablePackageHint = Object.keys(UNIVERSAL_EXTRA_PACKAGES).join(', ');
+  }
+
   userMessage += `
-Template "${displayName}" imported. Dependencies install automatically.
+Template "${displayName}" imported and running.
+Pre-installed packages (ready to import): ${availablePackageHint}.
 
 RULES:
-1. Edit only the files you need — do NOT rewrite files unnecessarily or create duplicate structures.
-2. Preserve existing imports, exports, and functionality when editing files.
-3. Do NOT run \`npm install\` or \`npm run dev\` — both happen automatically.
-4. Follow the template's existing directory structure and patterns.
-5. Use TypeScript (.tsx/.ts) for new files unless the template uses plain JS.
+1. Edit only the files you need — preserve existing imports, exports, and structure.
+2. Follow the template's existing directory structure and patterns.
 `;
 
   return {
