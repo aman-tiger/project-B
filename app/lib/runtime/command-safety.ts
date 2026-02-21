@@ -18,14 +18,27 @@ const logger = createScopedLogger('CommandSafety');
  * Each entry has a regex and a human-readable reason.
  */
 const BLOCKED_PATTERNS: { pattern: RegExp; reason: string }[] = [
-  // Recursive force-delete of root or home
+  /*
+   * Recursive force-delete of root or home.
+   * Use non-capturing group instead of $ anchor so chained commands
+   * (e.g. 'rm -rf / && echo') are also caught.
+   */
   {
-    pattern: /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(-[a-zA-Z]*r[a-zA-Z]*\s+)?\s*\/\s*$/i,
+    pattern: /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(-[a-zA-Z]*r[a-zA-Z]*\s+)?\s*\/(?:\s|[;&|]|$)/i,
     reason: 'Recursive delete of root directory',
   },
-  { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\/\s*$/i, reason: 'Recursive force-delete of root directory' },
-  { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*\s+~\/?$/i, reason: 'Recursive delete of home directory' },
-  { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+~\/?$/i, reason: 'Recursive force-delete of home directory' },
+  {
+    pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\/(?:\s|[;&|]|$)/i,
+    reason: 'Recursive force-delete of root directory',
+  },
+  {
+    pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*\s+~\/?(?:\s|[;&|]|$)/i,
+    reason: 'Recursive delete of home directory',
+  },
+  {
+    pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+~\/?(?:\s|[;&|]|$)/i,
+    reason: 'Recursive force-delete of home directory',
+  },
 
   // Windows equivalents
   { pattern: /\bformat\s+[a-zA-Z]:/i, reason: 'Disk format command' },
@@ -58,6 +71,19 @@ const BLOCKED_PATTERNS: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bshutdown\b/i, reason: 'System shutdown command' },
   { pattern: /\breboot\b/i, reason: 'System reboot command' },
   { pattern: /\binit\s+[06]\b/i, reason: 'System halt/reboot via init' },
+
+  // Explicit safety-override flags
+  { pattern: /--no-preserve-root/i, reason: 'Bypassing rm root protection' },
+
+  // Environment variable exfiltration
+  {
+    pattern: /\bcurl\b.*\$\{?\w*(?:KEY|TOKEN|SECRET|PASSWORD|PASS)\w*\}?/i,
+    reason: 'Potential credential exfiltration via curl',
+  },
+  {
+    pattern: /\bwget\b.*\$\{?\w*(?:KEY|TOKEN|SECRET|PASSWORD|PASS)\w*\}?/i,
+    reason: 'Potential credential exfiltration via wget',
+  },
 ];
 
 export interface CommandValidationResult {
