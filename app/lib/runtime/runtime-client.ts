@@ -460,6 +460,7 @@ export class RuntimeClient implements RuntimeProvider {
         command,
         cwd: options.cwd,
         env: options.env,
+        ...(options.timeout ? { timeout: options.timeout } : {}),
       }),
     });
 
