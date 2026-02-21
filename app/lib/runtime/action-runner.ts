@@ -655,12 +655,16 @@ export class ActionRunner {
 
       if (relativePath === 'package.json') {
         // Snapshot existing deps BEFORE merge so we can detect new additions
-        try {
-          const existingContent = await runtime.fs.readFile(relativePath, 'utf-8');
-          const existingPkg = JSON.parse(existingContent);
-          oldDepsSnapshot = { ...(existingPkg.dependencies || {}), ...(existingPkg.devDependencies || {}) };
-        } catch {
-          // File doesn't exist yet — first write, npm install will run naturally
+        const pkgFileExists = await runtime.fs.exists(relativePath);
+
+        if (pkgFileExists) {
+          try {
+            const existingContent = await runtime.fs.readFile(relativePath, 'utf-8');
+            const existingPkg = JSON.parse(existingContent);
+            oldDepsSnapshot = { ...(existingPkg.dependencies || {}), ...(existingPkg.devDependencies || {}) };
+          } catch {
+            // File exists but couldn't be read/parsed — continue without snapshot
+          }
         }
 
         contentToWrite = await this.#mergePackageJsonDeps(runtime, relativePath, action.content);
@@ -1306,6 +1310,13 @@ export class ActionRunner {
    */
   async #mergePackageJsonDeps(runtime: RuntimeProvider, relativePath: string, newContent: string): Promise<string> {
     try {
+      // Check existence first to avoid 404 console noise on first write
+      const fileExists = await runtime.fs.exists(relativePath);
+
+      if (!fileExists) {
+        return newContent;
+      }
+
       const existingContent = await runtime.fs.readFile(relativePath, 'utf-8');
       const existingPkg = JSON.parse(existingContent);
       const newPkg = JSON.parse(newContent);
