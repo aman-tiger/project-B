@@ -206,7 +206,7 @@ async function handleGitClone({ request }: ActionFunctionArgs) {
           cwd: projectDir,
           stdio: 'ignore',
           shell: true,
-          detached: true,
+          windowsHide: true,
           env: { ...process.env, NODE_ENV: 'development' },
         });
 
