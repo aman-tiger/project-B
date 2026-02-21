@@ -31,6 +31,7 @@ import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/inspector-types';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { mcpStore } from '~/lib/stores/mcp';
+import { agentModeStore } from '~/lib/stores/agentMode';
 import type { LlmErrorAlertType } from '~/types/actions';
 import {
   registerAutoFixCallback,
@@ -155,6 +156,7 @@ export const ChatImpl = memo(
 
     const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
     const mcpSettings = useStore(mcpStore).settings;
+    const agentState = useStore(agentModeStore);
 
     // Restore plan mode from localStorage when chat changes, or carry over pre-chat state
     useEffect(() => {
@@ -241,6 +243,7 @@ export const ChatImpl = memo(
           },
         },
         maxLLMSteps: mcpSettings.maxLLMSteps,
+        agentMode: agentState.settings.enabled,
       },
       sendExtraMessageFields: true,
       onError: (e) => {
