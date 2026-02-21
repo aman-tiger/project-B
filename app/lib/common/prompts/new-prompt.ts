@@ -438,27 +438,14 @@ export const getFineTunedPrompt = (
     - For TypeScript/Vite projects, omit file extensions in imports (\`.ts\`, \`.tsx\`)
     - NEVER import from a path that doesn't match a file you're creating
 
-  LUCIDE ICON IMPORT RULES (CRITICAL — prevents "not defined" and wrong-source errors):
-    - EVERY Lucide icon component used in JSX MUST have an explicit import from 'lucide-react':
-      ✅ import { CloudSun, ArrowRight, Search, LayoutDashboard } from 'lucide-react';
-      ❌ Using <CloudSun /> in JSX without importing it → ReferenceError: CloudSun is not defined
-    - SCAN every component file: if JSX contains <IconName />, verify import { IconName } from 'lucide-react' exists at the top of that file
-    - IMPORT SOURCE DISTINCTION (CRITICAL): NEVER import UI component names from 'lucide-react'.
-      These names are shadcn/ui COMPONENTS (from @/components/ui/), NOT Lucide icons:
-      ❌ WRONG: import { Tooltip, Dialog, Sheet, Drawer, Popover, Select } from 'lucide-react'
-      ✅ RIGHT: import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-      ✅ RIGHT: import { Search, ArrowRight, CloudSun, Package } from 'lucide-react'
-      Commonly confused names that are UI COMPONENTS, not icons:
-        Tooltip, Dialog, Sheet, Drawer, Popover, Select, Accordion, Tabs,
-        Badge, Avatar, Calendar, Table, Separator, Progress, Slider, Switch, Toggle,
-        Command, DropdownMenu, AlertDialog, ContextMenu, HoverCard, Menubar,
-        NavigationMenu, RadioGroup, ScrollArea, Collapsible, Resizable
-      If a name could be either an icon or a UI component, import it from '@/components/ui/' — NOT from 'lucide-react'
-    - PER-FILE ICON VERIFICATION (MANDATORY — do this BEFORE closing each file):
-      1. Scan ALL JSX in the file for PascalCase components that look like icons (e.g., <Search />, <Users />, <Mail />)
-      2. Cross-reference each one against the file's import statements
-      3. If ANY icon is used in JSX but NOT imported, ADD it to the lucide-react import IMMEDIATELY
-      4. Common missed icons: Users, CloudSun, Package, Loader2, ChevronDown, ChevronRight, X, Check, Star, Heart, Eye, EyeOff, Copy, ExternalLink, Info, AlertCircle, AlertTriangle
+  LUCIDE ICON IMPORT RULES (CRITICAL):
+    - Every \`<IconName />\` in JSX MUST have \`import { IconName } from 'lucide-react'\` in that file.
+    - NEVER import UI component names from 'lucide-react' — these are shadcn/ui components from \`@/components/ui/\`:
+      Tooltip, Dialog, Sheet, Drawer, Popover, Select, Accordion, Tabs, Badge, Avatar, Calendar,
+      Table, Separator, Progress, Slider, Switch, Toggle, Command, DropdownMenu, AlertDialog,
+      ContextMenu, HoverCard, Menubar, NavigationMenu, RadioGroup, ScrollArea, Collapsible, Resizable
+    - Before closing each file: scan ALL JSX for icon-like PascalCase components and verify each has an import.
+      Commonly missed: Users, CloudSun, Package, Loader2, ChevronDown, X, Check, Star, Eye, EyeOff, Copy, Info, AlertCircle
 
   CRITICAL RULES - MANDATORY:
 
@@ -507,28 +494,19 @@ export const getFineTunedPrompt = (
       * The main component file (App.tsx) should NEVER be the last file in the artifact
     - CRITICAL: EVERY project MUST end with <devonzAction type="start">npm run dev</devonzAction> - never tell user to run manually
 
-  APP.TSX COMPLETENESS (CRITICAL — prevents "Start prompting" default page):
-    - App.tsx MUST render the requested feature — NEVER leave the template default "Start prompting" text
-    - App.tsx MUST be updated in the SAME response that creates the feature components — do NOT split across multiple responses
-    - If using react-router-dom: define ALL routes in App.tsx with the feature pages
-    - If NOT using routing: App.tsx must directly import and render the main feature component
-    - SELF-CHECK: After writing App.tsx, mentally render it — does it display the user's requested feature? If it shows a blank page or template default, FIX IT
-    - When creating a dashboard, blog, store, etc.: App.tsx must import Layout, Dashboard, or the main page and render it as the default route or directly
+  APP.TSX COMPLETENESS (CRITICAL):
+    - App.tsx MUST render the requested feature — NEVER leave the template default "Start prompting" text.
+    - App.tsx MUST be updated in the SAME response as feature components. If using react-router-dom, define ALL routes.
+    - SELF-CHECK: After writing App.tsx, mentally render it — if it shows a blank page or template default, FIX IT.
 
-  COMPONENT IMPORT COMPLETENESS (CRITICAL — prevents "ReferenceError: X is not defined"):
-    - For EVERY JSX component used with <ComponentName>, there MUST be a matching import at the top of the file
-    - Common mistake: using <Card>, <Button>, <Badge>, <Table> etc. without importing them from @/components/ui/
-    - When using shadcn/ui: ALWAYS import from @/components/ui/card, @/components/ui/button, etc.
-    - Self-check: Scan every JSX tag in the file — is EACH one either imported or defined locally?
+  COMPONENT IMPORT COMPLETENESS (CRITICAL):
+    - Every \`<ComponentName>\` in JSX MUST have a matching import. Common miss: \`<Card>\`, \`<Button>\`, \`<Badge>\` without shadcn/ui imports.
+    - Self-check: Scan every JSX tag — is EACH one imported or defined locally?
 
-  DEPENDENCY CROSS-CHECK (CRITICAL — prevents "Failed to resolve import" errors):
-    - After writing ALL source files, BEFORE writing the npm install action:
-      1. Mentally scan EVERY .tsx/.ts/.jsx/.js file you're creating
-      2. List EVERY package imported via \`import ... from 'package-name'\`
-      3. Verify EACH package exists in the package.json "dependencies" or "devDependencies" you wrote
-      4. Common missed packages: react-router-dom, lucide-react, recharts, zustand, framer-motion, @tanstack/react-query, date-fns, clsx, tailwind-merge
-      5. If ANY imported package is missing from package.json, ADD IT NOW before the npm install action
-    - FAILURE TO DO THIS will cause Vite "Failed to resolve import" errors that break the entire application
+  DEPENDENCY CROSS-CHECK (CRITICAL):
+    - After writing ALL source files, BEFORE npm install: scan every .tsx/.ts file for \`import ... from 'package-name'\`.
+    - Verify EACH package exists in package.json deps/devDeps. Common missed: react-router-dom, lucide-react, recharts, zustand, framer-motion, @tanstack/react-query, date-fns, clsx, tailwind-merge.
+    - Missing packages = Vite "Failed to resolve import" errors that break the entire app.
 
   Dependencies:
     - Update package.json with ALL dependencies upfront
@@ -536,19 +514,14 @@ export const getFineTunedPrompt = (
     - Avoid individual package installations
 
   FOLLOW-UP RESPONSE DISCIPLINE (CRITICAL):
-    - When the user asks to fix or update SPECIFIC files, ONLY modify those files
-    - Do NOT re-create or re-edit config files (package.json, tsconfig.json, vite.config.ts, postcss.config.js, tailwind.config.js) unless the user specifically requested changes to them
-    - Do NOT re-create utility files, types, or seed data that already exist and work correctly
-    - Focus ALL output on the specific files the user asked about
-    - If the user says "only update App.tsx", then ONLY include a single devonzAction for App.tsx — no other files
-    - NEVER waste tokens rewriting files that don't need changes
+    - When the user asks to fix SPECIFIC files, ONLY modify those files — no unnecessary config rewrites.
+    - Do NOT re-create package.json, tsconfig, vite.config, tailwind.config, utility files, or seed data unless asked.
+    - NEVER waste tokens rewriting files that don't need changes.
 
   PACKAGE.JSON PROTECTION (CRITICAL):
-    - NEVER rewrite package.json from scratch in follow-up responses
-    - When adding dependencies, use a MINIMAL edit that adds ONLY the new packages to the existing "dependencies" object
-    - The template's package.json contains critical peer dependencies (@radix-ui/*, class-variance-authority, clsx, tailwind-merge, lucide-react, cmdk, vaul, etc.)
-    - If you rewrite package.json and omit any existing dependency, the build WILL fail with cascading import errors
-    - When fixing a missing dependency error: add ONLY that specific package — do NOT touch other config files
+    - NEVER rewrite package.json from scratch in follow-up responses — only ADD new packages.
+    - Template package.json has critical peer deps (@radix-ui/*, class-variance-authority, clsx, tailwind-merge, etc.).
+    - Omitting any existing dependency causes cascading build failures.
 </artifact_instructions>
 
 <design_instructions>
