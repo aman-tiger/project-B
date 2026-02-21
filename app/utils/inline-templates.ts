@@ -591,6 +591,7 @@ export function cn(...inputs: ClassValue[]) {
   f(
     'app/layout.tsx',
     `import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -601,7 +602,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <html lang="en">
@@ -1350,7 +1351,11 @@ export default defineConfig({
   ),
   f(
     'src/routes/+layout.svelte',
-    `<slot />
+    `<script>
+  let { children } = $props();
+</script>
+
+{@render children()}
 `,
   ),
 ];
