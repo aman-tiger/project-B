@@ -172,25 +172,40 @@ export const selectStarterTemplate = async (options: { message: string; model: s
     provider,
     system: starterTemplateSelectionPrompt(templates, showcasePromptTemplates),
   };
-  const response = await fetch('/api/llmcall', {
-    method: 'POST',
-    body: JSON.stringify(requestBody),
-  });
-  const respJson: { text: string } = await response.json();
-  logger.debug(respJson);
 
-  const { text } = respJson;
-  const selectedTemplate = parseSelectedTemplate(text);
+  try {
+    const response = await fetch('/api/llmcall', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
 
-  if (selectedTemplate) {
-    return selectedTemplate;
-  } else {
+    if (!response.ok) {
+      logger.warn(`LLM call returned ${response.status}, falling back to blank template`);
+      return { template: 'blank', title: '' };
+    }
+
+    const respJson = (await response.json()) as { text?: string };
+    logger.debug(respJson);
+
+    const text = respJson.text;
+
+    if (!text) {
+      logger.warn('LLM response missing text field, falling back to blank template');
+      return { template: 'blank', title: '' };
+    }
+
+    const selectedTemplate = parseSelectedTemplate(text);
+
+    if (selectedTemplate) {
+      return selectedTemplate;
+    }
+
     logger.info('No template selected, using blank template');
 
-    return {
-      template: 'blank',
-      title: '',
-    };
+    return { template: 'blank', title: '' };
+  } catch (error) {
+    logger.error('Template selection failed, falling back to blank template:', error);
+    return { template: 'blank', title: '' };
   }
 };
 
@@ -489,7 +504,7 @@ export async function getTemplates(templateName: string, title?: string) {
    * ignoring common unwanted files
    * exclude    .git
    */
-  filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.git') == false);
+  filteredFiles = filteredFiles.filter((x) => !x.path.startsWith('.git'));
 
   /*
    * Lock files are included for faster npm install times.
@@ -497,7 +512,7 @@ export async function getTemplates(templateName: string, title?: string) {
    */
 
   // exclude    .devonz
-  filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.devonz') == false);
+  filteredFiles = filteredFiles.filter((x) => !x.path.startsWith('.devonz'));
 
   // check for ignore file in .devonz folder
   const templateIgnoreFile = files.find((x) => x.path.startsWith('.devonz') && x.name == 'ignore');

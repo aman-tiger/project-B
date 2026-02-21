@@ -358,10 +358,10 @@ export class ActionRunner {
       action.content = repairResult.command;
     }
 
-    // Inject --legacy-peer-deps into npm install commands to prevent peer dep conflicts
-    if (/^npm\s+install\b/.test(action.content.trim()) && !action.content.includes('--legacy-peer-deps')) {
-      action.content = action.content.trim().replace(/^(npm\s+install)/, '$1 --legacy-peer-deps');
-      logger.debug('Injected --legacy-peer-deps into npm install command');
+    // Inject --legacy-peer-deps into npm install/ci commands to prevent peer dep conflicts
+    if (/^npm\s+(install|ci)\b/.test(action.content.trim()) && !action.content.includes('--legacy-peer-deps')) {
+      action.content = action.content.trim().replace(/^(npm\s+(?:install|ci))/, '$1 --legacy-peer-deps');
+      logger.debug('Injected --legacy-peer-deps into npm install/ci command');
     }
 
     // --- Step 2: Route to staging or direct execution ---
@@ -1236,12 +1236,27 @@ export class ActionRunner {
                 }
 
                 if (newImports.length > 0) {
-                  // Insert new imports after the last existing import statement
-                  const lastImportMatch = content.match(/^(import\s+.+(?:\n|$))+/m);
+                  /*
+                   * Find the insertion point after the LAST import statement.
+                   * Uses `from '...'` line endings to handle both single-line
+                   * and multi-line imports (e.g. `import {\n  A,\n  B\n} from 'x'`).
+                   */
+                  const fromImportEnd = /from\s+['"][^'"]+['"]\s*;?\s*$/gm;
+                  const sideEffectImport = /^import\s+['"][^'"]+['"]\s*;?\s*$/gm;
+                  let lastImportEnd = -1;
+                  let regMatch;
 
-                  if (lastImportMatch) {
-                    const insertPos = lastImportMatch.index! + lastImportMatch[0].length;
-                    content = content.slice(0, insertPos) + newImports.join('\n') + '\n' + content.slice(insertPos);
+                  while ((regMatch = fromImportEnd.exec(content)) !== null) {
+                    lastImportEnd = Math.max(lastImportEnd, regMatch.index + regMatch[0].length);
+                  }
+
+                  while ((regMatch = sideEffectImport.exec(content)) !== null) {
+                    lastImportEnd = Math.max(lastImportEnd, regMatch.index + regMatch[0].length);
+                  }
+
+                  if (lastImportEnd > -1) {
+                    content =
+                      content.slice(0, lastImportEnd) + '\n' + newImports.join('\n') + content.slice(lastImportEnd);
                   } else {
                     // No existing imports — add at top
                     content = newImports.join('\n') + '\n\n' + content;
