@@ -411,21 +411,20 @@ export class StreamingMessageParser {
       const operation = this.#extractAttribute(actionTag, 'operation');
 
       if (!operation || !['migration', 'query'].includes(operation)) {
-        logger.warn(`Invalid or missing operation for Supabase action: ${operation}`);
-        throw new Error(`Invalid Supabase operation: ${operation}`);
+        logger.warn(`Invalid or missing operation for Supabase action: ${operation}, defaulting to 'query'`);
       }
 
-      (actionAttributes as SupabaseAction).operation = operation as 'migration' | 'query';
+      (actionAttributes as SupabaseAction).operation =
+        operation && ['migration', 'query'].includes(operation) ? (operation as 'migration' | 'query') : 'query';
 
       if (operation === 'migration') {
         const filePath = this.#extractAttribute(actionTag, 'filePath');
 
         if (!filePath) {
-          logger.warn('Migration requires a filePath');
-          throw new Error('Migration requires a filePath');
+          logger.warn('Migration action missing filePath, using placeholder');
         }
 
-        (actionAttributes as SupabaseAction).filePath = filePath;
+        (actionAttributes as SupabaseAction).filePath = filePath || 'supabase/migrations/unknown.sql';
       }
     } else if (actionType === 'file') {
       const filePath = this.#extractAttribute(actionTag, 'filePath') as string;
