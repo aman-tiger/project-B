@@ -2,6 +2,8 @@ import { atom, map } from 'nanostores';
 import Cookies from 'js-cookie';
 import { createScopedLogger } from '~/utils/logger';
 
+const EVENT_LOGS_KEY = 'devonz_eventLogs';
+
 const logger = createScopedLogger('LogStore');
 
 export interface LogEntry {
@@ -52,7 +54,7 @@ class LogStore {
   private _readLogs = new Set<string>();
 
   constructor() {
-    // Load saved logs from cookies on initialization
+    // Load saved logs from localStorage on initialization
     this._loadLogs();
 
     // Only load read logs in browser environment
@@ -67,14 +69,31 @@ class LogStore {
   }
 
   private _loadLogs() {
-    const savedLogs = Cookies.get('eventLogs');
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Migrate from old cookie-based storage (cookies have ~4KB limit)
+    const cookieLogs = Cookies.get('eventLogs');
+
+    if (cookieLogs) {
+      try {
+        localStorage.setItem(EVENT_LOGS_KEY, cookieLogs);
+      } catch {
+        // localStorage full — skip migration
+      }
+
+      Cookies.remove('eventLogs');
+    }
+
+    const savedLogs = localStorage.getItem(EVENT_LOGS_KEY);
 
     if (savedLogs) {
       try {
         const parsedLogs = JSON.parse(savedLogs);
         this._logs.set(parsedLogs);
       } catch (error) {
-        logger.error('Failed to parse logs from cookies:', error);
+        logger.error('Failed to parse logs from localStorage:', error);
       }
     }
   }
@@ -97,8 +116,17 @@ class LogStore {
   }
 
   private _saveLogs() {
-    const currentLogs = this._logs.get();
-    Cookies.set('eventLogs', JSON.stringify(currentLogs));
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const currentLogs = this._logs.get();
+      localStorage.setItem(EVENT_LOGS_KEY, JSON.stringify(currentLogs));
+    } catch {
+      /* localStorage full — skip the save */
+      logger.warn('Failed to save logs to localStorage (storage may be full)');
+    }
   }
 
   private _saveReadLogs() {
