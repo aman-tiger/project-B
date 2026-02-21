@@ -77,6 +77,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: { port: 3000 },
 });
 `,
   ),
@@ -199,7 +200,9 @@ const viteTypescript: InlineFile[] = [
     'vite.config.ts',
     `import { defineConfig } from 'vite';
 
-export default defineConfig({});
+export default defineConfig({
+  server: { port: 3000 },
+});
 `,
   ),
   f(
@@ -269,7 +272,7 @@ const vanillaVite: InlineFile[] = [
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3000",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -377,6 +380,7 @@ import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
   plugins: [vue()],
+  server: { port: 3000 },
 });
 `,
   ),
@@ -1233,6 +1237,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: { port: 3000 },
 });
 `,
   ),
@@ -2076,6 +2081,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [qwikCity(), qwikVite(), tsconfigPaths()],
+  server: { port: 3000 },
 });
 `,
   ),
@@ -2186,6 +2192,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [remix(), tsconfigPaths()],
+  server: { port: 3000 },
 });
 `,
   ),
@@ -2341,6 +2348,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [sveltekit()],
+  server: { port: 3000 },
 });
 `,
   ),
@@ -2612,6 +2620,7 @@ import solidPlugin from 'vite-plugin-solid';
 
 export default defineConfig({
   plugins: [solidPlugin()],
+  server: { port: 3000 },
 });
 `,
   ),
