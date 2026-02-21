@@ -262,10 +262,7 @@ class VersionsStore {
    * @param maxRetries  How many additional attempts after the first
    * @param retryDelays Delay in ms before each retry (index = retry number)
    */
-  async capturePreviewThumbnail(
-    maxRetries = 4,
-    retryDelays = [3000, 6000, 10000, 15000],
-  ): Promise<string | undefined> {
+  async capturePreviewThumbnail(maxRetries = 4, retryDelays = [3000, 6000, 10000, 15000]): Promise<string | undefined> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const result = await this._tryCapture();
@@ -295,12 +292,16 @@ class VersionsStore {
    * then captures the thumbnail in the background and updates the version.
    */
   scheduleThumbnailCapture(versionId: string) {
-    this.capturePreviewThumbnail().then((thumbnail) => {
-      if (thumbnail) {
-        this.updateThumbnail(versionId, thumbnail);
-        logger.trace(`Thumbnail captured for version ${versionId}`);
-      }
-    });
+    this.capturePreviewThumbnail()
+      .then((thumbnail) => {
+        if (thumbnail) {
+          this.updateThumbnail(versionId, thumbnail);
+          logger.trace(`Thumbnail captured for version ${versionId}`);
+        }
+      })
+      .catch((error) => {
+        logger.warn(`Failed to capture thumbnail for version ${versionId}:`, error);
+      });
   }
 
   /**

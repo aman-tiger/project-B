@@ -80,11 +80,15 @@ const messageParser = new EnhancedStreamingMessageParser({
 
         // Auto-commit to git (fire-and-forget, non-blocking)
         if (runtimeContext.projectId) {
-          import('~/lib/runtime/git-client').then(({ commit }) => {
-            commit(runtimeContext.projectId!, title).catch(() => {
-              // Git commit is best-effort -- don't block the UI
+          import('~/lib/runtime/git-client')
+            .then(({ commit }) => {
+              commit(runtimeContext.projectId!, title).catch(() => {
+                // Git commit is best-effort -- don't block the UI
+              });
+            })
+            .catch(() => {
+              // Dynamic import failed -- non-critical, ignore
             });
-          });
         }
 
         // Capture thumbnail in the background with retries (preview may not be ready yet)
