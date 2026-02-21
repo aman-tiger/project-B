@@ -368,22 +368,28 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     },
   },
 
-  // Port in use - NOT auto-fixable (requires user action)
-  {
-    pattern: /Port\s+(\d+)\s+is\s+(?:already\s+)?in\s+use/i,
-    type: 'runtime',
-    severity: 'error',
-    title: 'Port In Use',
-    autoFixable: false, // User needs to free the port manually
-    extractDetails: (match) =>
-      `Port ${match[1]} is already in use. Close the process using this port or use a different port.`,
-  },
+  /*
+   * Port in use - NOT auto-fixable and NOT alertable
+   * Dev servers (Vite, Next.js, etc.) auto-retry on the next available port,
+   * so this is almost always a false positive that confuses users.
+   * Removed from active detection — kept as comment for reference.
+   * {
+   *   pattern: /Port\s+(\d+)\s+is\s+(?:already\s+)?in\s+use/i,
+   *   type: 'runtime',
+   *   severity: 'error',
+   *   title: 'Port In Use',
+   *   autoFixable: false,
+   * },
+   */
 ];
 
 /**
  * Patterns to ignore (false positives)
  */
 const IGNORE_PATTERNS: RegExp[] = [
+  // Ignore internal shell markers used for command completion detection
+  /__DEVONZ_CMD_DONE__/i,
+
   // Ignore deprecation warnings
   /deprecat(?:ed|ion)/i,
 
@@ -400,6 +406,10 @@ const IGNORE_PATTERNS: RegExp[] = [
   // Ignore successful messages
   /successfully/i,
   /completed/i,
+
+  // Ignore port-in-use messages — dev servers auto-retry on next available port
+  /port\s+\d+\s+is\s+(?:already\s+)?in\s+use/i,
+  /EADDRINUSE/i,
 ];
 
 /**

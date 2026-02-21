@@ -181,7 +181,16 @@ export class DevonzShell {
 
     /* Forward output to terminal + internal handler */
     this.#disposeOutput = this.#process.onData((data) => {
-      terminal.write(data);
+      /*
+       * Filter internal markers before displaying to user.
+       * The raw data still goes to the internal handler for marker detection.
+       */
+      const filtered = this.#filterInternalNoise(data);
+
+      if (filtered) {
+        terminal.write(filtered);
+      }
+
       this.#handleOutputData(data);
     });
 
@@ -207,6 +216,15 @@ export class DevonzShell {
     this.#readyResolver = undefined;
     this.#readyMarker = '';
     this.#readyBuffer = '';
+
+    /*
+     * Reset terminal to clear shell startup noise:
+     * - "bash: cannot set terminal process group" warnings
+     * - "bash: no job control in this shell" messages
+     * - The readiness marker echo command and its output
+     * Users see a clean terminal from this point forward.
+     */
+    terminal.reset();
 
     this.#initialized?.();
   }
@@ -274,6 +292,32 @@ export class DevonzShell {
     if (this.#process) {
       this.#process.write('\x03');
     }
+  }
+
+  /**
+   * Strip internal shell mechanics from terminal output so users
+   * only see meaningful command output. Removes:
+   * - Marker echo suffixes from command lines (e.g. `; echo "__DEVONZ_CMD_DONE__..."`).
+   * - Standalone marker output lines.
+   */
+  #filterInternalNoise(data: string): string {
+    if (!data.includes(MARKER_PREFIX)) {
+      return data;
+    }
+
+    /* Strip the marker echo suffix appended to commands */
+    let filtered = data.replace(/;\s*echo\s+"[^"]*__DEVONZ_CMD_DONE__[^"]*"\s*/g, '');
+
+    /*
+     * Remove standalone marker output lines.
+     * These are the echoed markers themselves (e.g. `__DEVONZ_CMD_DONE__abc_0`).
+     */
+    filtered = filtered.replace(/[^\n]*__DEVONZ_CMD_DONE__\w+_\d+[^\n]*/g, '');
+
+    /* Collapse excessive blank lines left by removals */
+    filtered = filtered.replace(/\n{3,}/g, '\n\n');
+
+    return filtered;
   }
 
   get terminal() {
