@@ -75,7 +75,7 @@ const chatRequestSchema = z.object({
   planMode: z.boolean().default(false),
   designScheme: designSchemeSchema,
   supabase: supabaseConnectionSchema,
-  maxLLMSteps: z.number().int().positive().default(5),
+  maxLLMSteps: z.number().int().positive().max(20).default(5),
   agentMode: z.boolean().optional(),
 });
 

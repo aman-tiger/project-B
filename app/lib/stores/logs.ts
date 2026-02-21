@@ -134,7 +134,11 @@ class LogStore {
       return;
     }
 
-    localStorage.setItem('devonz_read_logs', JSON.stringify(Array.from(this._readLogs)));
+    try {
+      localStorage.setItem('devonz_read_logs', JSON.stringify(Array.from(this._readLogs)));
+    } catch {
+      /* localStorage full or unavailable — skip */
+    }
   }
 
   private _generateId(): string {

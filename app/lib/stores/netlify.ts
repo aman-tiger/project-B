@@ -7,7 +7,14 @@ import { createScopedLogger } from '~/utils/logger';
 const logger = createScopedLogger('NetlifyStore');
 
 // Initialize with stored connection or environment variable
-const storedConnection = typeof window !== 'undefined' ? localStorage.getItem('netlify_connection') : null;
+let storedConnection: string | null = null;
+
+try {
+  storedConnection = typeof window !== 'undefined' ? localStorage.getItem('netlify_connection') : null;
+} catch {
+  /* localStorage unavailable (private browsing, etc.) */
+}
+
 const envToken = import.meta.env.VITE_NETLIFY_ACCESS_TOKEN;
 
 // If we have an environment token but no stored connection, initialize with the env token
@@ -86,7 +93,11 @@ export const updateNetlifyConnection = (updates: Partial<NetlifyConnection>) => 
 
   // Persist to localStorage
   if (typeof window !== 'undefined') {
-    localStorage.setItem('netlify_connection', JSON.stringify(newState));
+    try {
+      localStorage.setItem('netlify_connection', JSON.stringify(newState));
+    } catch {
+      /* localStorage full or unavailable — skip */
+    }
   }
 };
 
