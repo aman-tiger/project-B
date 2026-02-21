@@ -61,9 +61,15 @@ function validatePath(inputPath: string): { valid: true; normalized: string } | 
     return { valid: false, error: `Path traversal not allowed: ${inputPath}` };
   }
 
-  const normalized = segments.filter(Boolean).join('/');
+  /*
+   * Return a relative path (no leading slash). The server-side isSafePath()
+   * rejects absolute paths starting with '/' to prevent traversal.
+   * Use '.' for root (empty after filtering) — the server resolves it
+   * to the project directory.
+   */
+  const normalized = segments.filter(Boolean).join('/') || '.';
 
-  return { valid: true, normalized: normalized.startsWith('/') ? normalized : `/${normalized}` };
+  return { valid: true, normalized };
 }
 
 /**
@@ -199,7 +205,7 @@ async function listDirectory(params: ListDirectoryParams): Promise<ToolExecution
       const items = await container.fs.readdir(dirPath);
 
       for (const item of items) {
-        const fullPath = dirPath === '/' ? `/${item.name}` : `${dirPath}/${item.name}`;
+        const fullPath = dirPath === '.' ? item.name : `${dirPath}/${item.name}`;
         const isDir = item.isDirectory;
 
         entries.push({
@@ -388,13 +394,22 @@ async function getErrors(params: GetErrorsParams): Promise<ToolExecutionResult<G
 async function searchCode(params: SearchCodeParams): Promise<ToolExecutionResult<SearchCodeResult>> {
   const {
     query,
-    path = '/',
+    path = '.',
     maxResults = 50,
     includePattern,
     excludePattern,
     filePattern,
     caseSensitive = false,
   } = params;
+
+  // Normalize the search root to a relative path (e.g. '/' → '.')
+  const pathCheck = validatePath(path);
+
+  if (!pathCheck.valid) {
+    return { success: false, error: pathCheck.error };
+  }
+
+  const searchRoot = pathCheck.normalized;
 
   try {
     const container = await runtime;
@@ -439,7 +454,7 @@ async function searchCode(params: SearchCodeParams): Promise<ToolExecutionResult
           break;
         }
 
-        const fullPath = dirPath === '/' ? `/${item.name}` : `${dirPath}/${item.name}`;
+        const fullPath = dirPath === '.' ? item.name : `${dirPath}/${item.name}`;
 
         if (item.isDirectory) {
           // Skip excluded directories
@@ -543,7 +558,7 @@ async function searchCode(params: SearchCodeParams): Promise<ToolExecutionResult
       }
     }
 
-    await searchInDirectory(path);
+    await searchInDirectory(searchRoot);
 
     logger.debug(`Search completed for: ${query}`, { matchCount: results.length });
 
@@ -636,24 +651,39 @@ async function renameFile(params: {
 }): Promise<ToolExecutionResult<{ oldPath: string; newPath: string; renamed: boolean }>> {
   const { oldPath, newPath } = params;
 
+  const oldPathCheck = validatePath(oldPath);
+
+  if (!oldPathCheck.valid) {
+    return { success: false, error: oldPathCheck.error };
+  }
+
+  const newPathCheck = validatePath(newPath);
+
+  if (!newPathCheck.valid) {
+    return { success: false, error: newPathCheck.error };
+  }
+
+  const safeOldPath = oldPathCheck.normalized;
+  const safeNewPath = newPathCheck.normalized;
+
   try {
     const container = await runtime;
 
     // Read the source file
-    const content = await container.fs.readFile(oldPath, 'utf-8');
+    const content = await container.fs.readFile(safeOldPath, 'utf-8');
 
     // Ensure parent directory of destination exists
-    const parentDir = newPath.substring(0, newPath.lastIndexOf('/'));
+    const parentDir = safeNewPath.substring(0, safeNewPath.lastIndexOf('/'));
 
     if (parentDir) {
       await container.fs.mkdir(parentDir, { recursive: true });
     }
 
     // Write to new location
-    await container.fs.writeFile(newPath, content);
+    await container.fs.writeFile(safeNewPath, content);
 
     // Delete old file
-    await container.fs.rm(oldPath);
+    await container.fs.rm(safeOldPath);
 
     logger.info(`Renamed: ${oldPath} → ${newPath}`);
 
@@ -686,10 +716,17 @@ async function patchFile(params: {
   replacements: Array<{ oldText: string; newText: string }>;
 }): Promise<ToolExecutionResult<{ path: string; replacementsApplied: number; totalReplacements: number }>> {
   const { path, replacements } = params;
+  const pathCheck = validatePath(path);
+
+  if (!pathCheck.valid) {
+    return { success: false, error: pathCheck.error };
+  }
+
+  const safePath = pathCheck.normalized;
 
   try {
     const container = await runtime;
-    let content = await container.fs.readFile(path, 'utf-8');
+    let content = await container.fs.readFile(safePath, 'utf-8');
     let applied = 0;
 
     for (const { oldText, newText } of replacements) {
@@ -706,7 +743,7 @@ async function patchFile(params: {
       };
     }
 
-    await container.fs.writeFile(path, content);
+    await container.fs.writeFile(safePath, content);
 
     logger.info(`Patched file: ${path}`, { applied, total: replacements.length });
 

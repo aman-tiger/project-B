@@ -184,7 +184,7 @@ describe('agentToolDefinitions', () => {
         content: 'content',
       });
 
-      expect(mockMkdir).toHaveBeenCalledWith('/deep/nested/path', { recursive: true });
+      expect(mockMkdir).toHaveBeenCalledWith('deep/nested/path', { recursive: true });
     });
 
     it('should detect file update vs creation', async () => {
@@ -238,8 +238,8 @@ describe('agentToolDefinitions', () => {
 
       expect(result.success).toBe(true);
       expect((result.data as ListDirectoryResult).entries).toHaveLength(3);
-      expect((result.data as ListDirectoryResult).entries[0]).toEqual({ name: '/src', isDirectory: true });
-      expect((result.data as ListDirectoryResult).entries[1]).toEqual({ name: '/package.json', isDirectory: false });
+      expect((result.data as ListDirectoryResult).entries[0]).toEqual({ name: 'src', isDirectory: true });
+      expect((result.data as ListDirectoryResult).entries[1]).toEqual({ name: 'package.json', isDirectory: false });
     });
 
     it('should default to root path', async () => {
@@ -518,7 +518,7 @@ describe('devonz_delete_file', () => {
     expect(result.success).toBe(true);
     expect((result.data as { path: string; deleted: boolean }).path).toBe('/src/old-file.ts');
     expect((result.data as { path: string; deleted: boolean }).deleted).toBe(true);
-    expect(mockRm).toHaveBeenCalledWith('/src/old-file.ts');
+    expect(mockRm).toHaveBeenCalledWith('src/old-file.ts');
   });
 
   it('should delete an empty directory', async () => {
@@ -530,7 +530,7 @@ describe('devonz_delete_file', () => {
 
     expect(result.success).toBe(true);
     expect((result.data as { path: string; deleted: boolean }).deleted).toBe(true);
-    expect(mockRm).toHaveBeenCalledWith('/src/empty-dir');
+    expect(mockRm).toHaveBeenCalledWith('src/empty-dir');
   });
 
   it('should delete a non-empty directory with recursive=true', async () => {
@@ -545,7 +545,7 @@ describe('devonz_delete_file', () => {
 
     expect(result.success).toBe(true);
     expect((result.data as { path: string; deleted: boolean }).deleted).toBe(true);
-    expect(mockRm).toHaveBeenCalledWith('/src/components', { recursive: true });
+    expect(mockRm).toHaveBeenCalledWith('src/components', { recursive: true });
   });
 
   it('should fail to delete non-empty directory without recursive flag', async () => {
@@ -597,9 +597,9 @@ describe('devonz_rename_file', () => {
     expect((result.data as { oldPath: string; newPath: string; renamed: boolean }).oldPath).toBe('/src/OldName.tsx');
     expect((result.data as { oldPath: string; newPath: string; renamed: boolean }).newPath).toBe('/src/NewName.tsx');
     expect((result.data as { oldPath: string; newPath: string; renamed: boolean }).renamed).toBe(true);
-    expect(mockReadFile).toHaveBeenCalledWith('/src/OldName.tsx', 'utf-8');
-    expect(mockWriteFile).toHaveBeenCalledWith('/src/NewName.tsx', fileContent, 'utf-8');
-    expect(mockRm).toHaveBeenCalledWith('/src/OldName.tsx');
+    expect(mockReadFile).toHaveBeenCalledWith('src/OldName.tsx', 'utf-8');
+    expect(mockWriteFile).toHaveBeenCalledWith('src/NewName.tsx', fileContent);
+    expect(mockRm).toHaveBeenCalledWith('src/OldName.tsx');
   });
 
   it('should create parent directories for destination', async () => {
@@ -610,7 +610,7 @@ describe('devonz_rename_file', () => {
 
     await renameFileTool.execute({ oldPath: '/src/file.ts', newPath: '/src/deep/nested/dir/file.ts' });
 
-    expect(mockMkdir).toHaveBeenCalledWith('/src/deep/nested/dir', { recursive: true });
+    expect(mockMkdir).toHaveBeenCalledWith('src/deep/nested/dir', { recursive: true });
   });
 
   it('should return error when source does not exist', async () => {
