@@ -11,7 +11,7 @@
  * @remarks SERVER-ONLY — imports `node:child_process`, `node:os`, etc.
  */
 
-import { spawn, exec } from 'node:child_process';
+import { spawn, exec, execSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
@@ -47,6 +47,37 @@ function detectShell(): string {
   }
 
   return process.env.SHELL ?? '/bin/bash';
+}
+
+/**
+ * Kill an entire process tree.
+ * On Windows, `process.kill()` only terminates the shell — child processes
+ * (like `next dev`) keep running. We use `taskkill /T /F` to kill the tree.
+ */
+function killProcessTree(proc: ChildProcess): void {
+  const pid = proc.pid;
+
+  if (!pid) {
+    return;
+  }
+
+  if (os.platform() === 'win32') {
+    try {
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore', windowsHide: true });
+    } catch {
+      // Process may have already exited
+    }
+  } else {
+    try {
+      process.kill(-pid, 'SIGTERM');
+    } catch {
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        // Process may have already exited
+      }
+    }
+  }
 }
 
 /** Regex patterns to detect port announcements in process output. */
@@ -158,11 +189,20 @@ export class LocalRuntime implements RuntimeProvider {
       TERM: 'xterm-256color',
     };
 
+    const isWindows = os.platform() === 'win32';
+
     const proc = spawn(command, args, {
       cwd,
       env,
       shell: this.#shell,
       stdio: ['pipe', 'pipe', 'pipe'],
+
+      /*
+       * On Unix, `detached: true` creates a new process group so we can
+       * kill the entire tree with `process.kill(-pid)`.
+       * On Windows we use `taskkill /T` instead, so detached isn't needed.
+       */
+      ...(isWindows ? {} : { detached: true }),
     });
 
     const dataListeners: Array<(data: string) => void> = [];
@@ -313,17 +353,15 @@ export class LocalRuntime implements RuntimeProvider {
     logger.info(`Cleaning ${this.#sessions.size} orphaned session(s) for "${this.#projectId}"`);
 
     for (const [id, session] of this.#sessions) {
-      try {
-        session.process.kill('SIGTERM');
-      } catch {
-        // Process may have already exited
-      }
-
+      killProcessTree(session.process);
       logger.debug(`Killed orphaned session ${id}`);
     }
 
     this.#sessions.clear();
     this.#detectedPorts.clear();
+
+    // Remove stale lock files that dev servers may leave behind (e.g. .next/dev/lock)
+    await this.#cleanLockFiles();
   }
 
   async teardown(): Promise<void> {
@@ -331,12 +369,7 @@ export class LocalRuntime implements RuntimeProvider {
 
     // Kill all running sessions
     for (const [id, session] of this.#sessions) {
-      try {
-        session.process.kill('SIGTERM');
-      } catch {
-        // Process may have already exited
-      }
-
+      killProcessTree(session.process);
       logger.debug(`Killed session ${id}`);
     }
 
@@ -373,18 +406,14 @@ export class LocalRuntime implements RuntimeProvider {
   }
 
   /** Kill a terminal session. */
-  killSession(sessionId: string, signal = 'SIGTERM'): void {
+  killSession(sessionId: string, _signal = 'SIGTERM'): void {
     const session = this.#sessions.get(sessionId);
 
     if (!session) {
       throw new Error(`Terminal session not found: ${sessionId}`);
     }
 
-    try {
-      session.process.kill(signal as NodeJS.Signals);
-    } catch {
-      // Process may have already exited
-    }
+    killProcessTree(session.process);
   }
 
   /*
@@ -396,6 +425,24 @@ export class LocalRuntime implements RuntimeProvider {
   #ensureBooted(): void {
     if (!this.#projectId) {
       throw new Error('Runtime not booted. Call boot(projectId) first.');
+    }
+  }
+
+  /**
+   * Remove stale lock files left behind by dev servers (e.g. `.next/dev/lock`).
+   * Without this, a refreshed page can't restart `next dev` because the
+   * previous (now-killed) process left the lock file on disk.
+   */
+  async #cleanLockFiles(): Promise<void> {
+    const lockPaths = [nodePath.join(this.#workdir, '.next', 'dev', 'lock')];
+
+    for (const lockPath of lockPaths) {
+      try {
+        await fs.unlink(lockPath);
+        logger.debug(`Removed stale lock file: ${lockPath}`);
+      } catch {
+        // Lock file doesn't exist — nothing to clean
+      }
     }
   }
 
