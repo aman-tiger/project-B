@@ -508,8 +508,17 @@ export class WorkbenchStore {
   }
 
   abortAllActions() {
-    // TODO: what do we wanna do and how do we wanna recover from this?
-    logger.warn('abortAllActions called — no recovery strategy implemented yet');
+    for (const [, artifact] of Object.entries(this.artifacts.get())) {
+      const actions = artifact.runner.actions.get();
+
+      for (const [, action] of Object.entries(actions)) {
+        if (action.status === 'running' || action.status === 'pending') {
+          action.abort();
+        }
+      }
+    }
+
+    logger.info('Aborted all running/pending actions');
   }
 
   setReloadedMessages(messages: string[]) {
