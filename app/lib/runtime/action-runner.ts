@@ -1,5 +1,5 @@
 import type { RuntimeProvider, DirEntry } from './runtime-provider';
-import { path as nodePath } from '~/utils/path';
+import { path as nodePath, toRelativePath } from '~/utils/path';
 import { atom, map, type MapStore } from 'nanostores';
 import type {
   ActionAlert,
@@ -534,9 +534,7 @@ export class ActionRunner {
      * Using nodePath.relative() on an already-relative path produces
      * a traversal (e.g. "../../src/App.tsx") which fails validation.
      */
-    const relativePath = action.filePath.startsWith(runtime.workdir)
-      ? nodePath.relative(runtime.workdir, action.filePath)
-      : action.filePath;
+    const relativePath = toRelativePath(runtime.workdir, action.filePath);
 
     // Check if staging is enabled and if this file should be staged
     const stagingState = stagingStore.get();
@@ -1235,9 +1233,7 @@ export class ActionRunner {
   async applyAcceptedChange(filePath: string, content: string): Promise<boolean> {
     try {
       const runtime = await this.#runtime;
-      const relativePath = filePath.startsWith(runtime.workdir)
-        ? nodePath.relative(runtime.workdir, filePath)
-        : filePath;
+      const relativePath = toRelativePath(runtime.workdir, filePath);
 
       let folder = nodePath.dirname(relativePath);
       folder = folder.replace(/\/+$/g, '');
@@ -1263,9 +1259,7 @@ export class ActionRunner {
   async deleteFile(filePath: string): Promise<boolean> {
     try {
       const runtime = await this.#runtime;
-      const relativePath = filePath.startsWith(runtime.workdir)
-        ? nodePath.relative(runtime.workdir, filePath)
-        : filePath;
+      const relativePath = toRelativePath(runtime.workdir, filePath);
 
       await runtime.fs.rm(relativePath);
       logger.info(`File deleted: ${relativePath}`);

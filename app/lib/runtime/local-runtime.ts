@@ -16,6 +16,7 @@ import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import * as os from 'node:os';
+import { initGitRepo } from './git-manager';
 import { randomUUID } from 'node:crypto';
 import type {
   RuntimeProvider,
@@ -127,6 +128,13 @@ export class LocalRuntime implements RuntimeProvider {
 
     // Replace filesystem with one scoped to the project
     (this as { fs: RuntimeFileSystem }).fs = new LocalFileSystem(this.#workdir);
+
+    // Initialize git repo for version history (non-blocking, best-effort)
+    try {
+      initGitRepo(this.#workdir);
+    } catch {
+      logger.debug('Git init skipped (git may not be installed)');
+    }
 
     logger.info(`Runtime booted for project "${projectId}" at ${this.#workdir}`);
   }

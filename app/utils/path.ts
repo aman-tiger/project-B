@@ -17,3 +17,17 @@ export const path = {
   parse: (path: string): ParsedPath => pathBrowserify.parse(path),
   format: (pathObject: ParsedPath): string => pathBrowserify.format(pathObject),
 } as const;
+
+/**
+ * Convert a file/folder path to a path relative to a base directory.
+ *
+ * Paths coming from the AI message parser are typically already relative
+ * (e.g. `src/App.tsx`).  `path.relative('/home/project', 'src/App.tsx')`
+ * produces `../../src/App.tsx` — a traversal path the server rejects.
+ *
+ * This helper only calls `path.relative()` when the path actually starts
+ * with the base directory prefix; otherwise it returns the path as-is.
+ */
+export function toRelativePath(baseDir: string, filePath: string): string {
+  return filePath.startsWith(baseDir) ? path.relative(baseDir, filePath) : filePath;
+}

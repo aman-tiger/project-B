@@ -126,7 +126,12 @@ async function fsLoader({ request }: LoaderFunctionArgs) {
           // Clean up when client disconnects
           request.signal.addEventListener('abort', () => {
             dispose();
-            controller.close();
+
+            try {
+              controller.close();
+            } catch {
+              // Controller may already be closed
+            }
           });
         },
       });

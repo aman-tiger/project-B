@@ -183,7 +183,17 @@ export class PreviewsStore {
 
     /* Guard against stale HMR-cached runtime missing expected methods */
     if (typeof runtime.onPortEvent !== 'function') {
-      logger.warn('Runtime missing onPortEvent — stale HMR cache? Skipping init');
+      logger.warn(
+        'Runtime missing onPortEvent — stale HMR cache? Skipping init',
+        'type:',
+        typeof runtime,
+        'constructor:',
+        runtime?.constructor?.name,
+        'keys:',
+        Object.keys(runtime),
+        'proto:',
+        Object.getOwnPropertyNames(Object.getPrototypeOf(runtime)),
+      );
 
       return;
     }

@@ -1,0 +1,256 @@
+/**
+ * @module git-manager
+ * Local git integration for project version control.
+ *
+ * Every project gets a git repo initialized on boot. Commits are created
+ * automatically after each LLM response, giving users full undo/redo
+ * via git history -- no custom snapshot system needed.
+ *
+ * @remarks SERVER-ONLY — uses child_process.execSync
+ */
+
+import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as nodePath from 'node:path';
+import { createScopedLogger } from '~/utils/logger';
+
+const logger = createScopedLogger('GitManager');
+
+export interface GitCommitInfo {
+  sha: string;
+  shortSha: string;
+  message: string;
+  timestamp: number;
+  isoDate: string;
+}
+
+function gitExec(cmd: string, cwd: string): string {
+  try {
+    return execSync(cmd, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 15_000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.debug(`git command failed: ${cmd} — ${msg}`);
+    throw error;
+  }
+}
+
+function isGitAvailable(): boolean {
+  try {
+    execSync('git --version', { encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let _gitAvailable: boolean | null = null;
+
+function checkGitAvailable(): boolean {
+  if (_gitAvailable === null) {
+    _gitAvailable = isGitAvailable();
+
+    if (!_gitAvailable) {
+      logger.warn('Git is not available on this system — version history disabled');
+    }
+  }
+
+  return _gitAvailable;
+}
+
+/**
+ * Initialize a git repo in the project directory if one doesn't exist.
+ * Creates an initial commit so there's always a base to diff against.
+ */
+export function initGitRepo(projectDir: string): boolean {
+  if (!checkGitAvailable()) {
+    return false;
+  }
+
+  try {
+    const gitDir = nodePath.join(projectDir, '.git');
+
+    if (fs.existsSync(gitDir)) {
+      return true;
+    }
+
+    gitExec('git init', projectDir);
+    gitExec('git config user.email "devonz@local"', projectDir);
+    gitExec('git config user.name "Devonz"', projectDir);
+
+    const gitignorePath = nodePath.join(projectDir, '.gitignore');
+
+    if (!fs.existsSync(gitignorePath)) {
+      fs.writeFileSync(gitignorePath, 'node_modules/\n.env\n.env.local\ndist/\nbuild/\n.cache/\n');
+    }
+
+    gitExec('git add -A', projectDir);
+    gitExec('git commit -m "Initial project" --allow-empty', projectDir);
+
+    logger.info(`Git repo initialized at ${projectDir}`);
+
+    return true;
+  } catch (error) {
+    logger.error('Failed to initialize git repo:', error);
+    return false;
+  }
+}
+
+/**
+ * Stage all changes and create a commit.
+ * Returns the commit SHA, or null if nothing to commit or git unavailable.
+ */
+export function autoCommit(projectDir: string, message: string): string | null {
+  if (!checkGitAvailable()) {
+    return null;
+  }
+
+  try {
+    gitExec('git add -A', projectDir);
+
+    const status = gitExec('git status --porcelain', projectDir);
+
+    if (!status) {
+      return null;
+    }
+
+    gitExec(`git commit -m ${JSON.stringify(message)}`, projectDir);
+
+    const sha = gitExec('git rev-parse HEAD', projectDir);
+    logger.info(`Auto-commit: ${sha.substring(0, 7)} — ${message}`);
+
+    return sha;
+  } catch (error) {
+    logger.error('Auto-commit failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Get the git log as an array of commit info objects.
+ */
+export function getGitLog(projectDir: string, maxCount = 50): GitCommitInfo[] {
+  if (!checkGitAvailable()) {
+    return [];
+  }
+
+  try {
+    const format = '%H%n%h%n%s%n%at%n%aI';
+    const raw = gitExec(`git log --format="${format}" -n ${maxCount}`, projectDir);
+
+    if (!raw) {
+      return [];
+    }
+
+    const lines = raw.split('\n');
+    const commits: GitCommitInfo[] = [];
+
+    for (let i = 0; i + 4 < lines.length; i += 5) {
+      commits.push({
+        sha: lines[i],
+        shortSha: lines[i + 1],
+        message: lines[i + 2],
+        timestamp: parseInt(lines[i + 3], 10) * 1000,
+        isoDate: lines[i + 4],
+      });
+    }
+
+    return commits;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get the diff between the current state and a specific commit.
+ */
+export function getDiff(projectDir: string, commitSha: string): string {
+  if (!checkGitAvailable()) {
+    return '';
+  }
+
+  try {
+    return gitExec(`git diff ${commitSha} --stat`, projectDir);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Checkout a specific commit (detached HEAD).
+ * Returns true if successful.
+ */
+export function checkoutCommit(projectDir: string, commitSha: string): boolean {
+  if (!checkGitAvailable()) {
+    return false;
+  }
+
+  try {
+    gitExec('git add -A', projectDir);
+
+    const status = gitExec('git status --porcelain', projectDir);
+
+    if (status) {
+      gitExec('git stash', projectDir);
+    }
+
+    gitExec(`git checkout ${commitSha}`, projectDir);
+    logger.info(`Checked out commit: ${commitSha.substring(0, 7)}`);
+
+    return true;
+  } catch (error) {
+    logger.error('Checkout failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Return to the main branch tip (undo a detached HEAD checkout).
+ */
+export function checkoutMain(projectDir: string): boolean {
+  if (!checkGitAvailable()) {
+    return false;
+  }
+
+  try {
+    gitExec('git checkout main 2>/dev/null || git checkout master', projectDir);
+    return true;
+  } catch {
+    try {
+      const branch = gitExec('git branch --list', projectDir)
+        .split('\n')
+        .map((b) => b.trim().replace('* ', ''))
+        .find((b) => b === 'main' || b === 'master');
+
+      if (branch) {
+        gitExec(`git checkout ${branch}`, projectDir);
+        return true;
+      }
+    } catch {
+      // Fall through
+    }
+
+    return false;
+  }
+}
+
+/**
+ * Get the list of files changed in a specific commit.
+ */
+export function getCommitFiles(projectDir: string, commitSha: string): string[] {
+  if (!checkGitAvailable()) {
+    return [];
+  }
+
+  try {
+    const raw = gitExec(`git diff-tree --no-commit-id --name-only -r ${commitSha}`, projectDir);
+    return raw ? raw.split('\n').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}

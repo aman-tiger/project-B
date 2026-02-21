@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { EnhancedStreamingMessageParser } from '~/lib/runtime/enhanced-message-parser';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { versionsStore } from '~/lib/stores/versions';
+import { runtimeContext } from '~/lib/runtime';
 import { createScopedLogger } from '~/utils/logger';
 
 const logger = createScopedLogger('useMessageParser');
@@ -73,14 +74,18 @@ const messageParser = new EnhancedStreamingMessageParser({
           }
         }
 
-        const version = versionsStore.createVersion(
-          versionMessageId,
-          title,
-          `Completed: ${title}`,
-          fileSnapshot,
-        );
+        const version = versionsStore.createVersion(versionMessageId, title, `Completed: ${title}`, fileSnapshot);
 
         logger.trace('Version created for message:', versionMessageId);
+
+        // Auto-commit to git (fire-and-forget, non-blocking)
+        if (runtimeContext.projectId) {
+          import('~/lib/runtime/git-client').then(({ commit }) => {
+            commit(runtimeContext.projectId!, title).catch(() => {
+              // Git commit is best-effort -- don't block the UI
+            });
+          });
+        }
 
         // Capture thumbnail in the background with retries (preview may not be ready yet)
         versionsStore.scheduleThumbnailCapture(version.id);

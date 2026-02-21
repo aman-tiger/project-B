@@ -2,7 +2,7 @@ import type { RuntimeProvider, WatchEvent } from '~/lib/runtime/runtime-provider
 import { getEncoding } from 'istextorbinary';
 import { map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
-import { path } from '~/utils/path';
+import { path, toRelativePath } from '~/utils/path';
 import { WORK_DIR } from '~/utils/constants';
 import { computeFileModifications } from '~/utils/diff';
 import { createScopedLogger } from '~/utils/logger';
@@ -567,7 +567,7 @@ export class FilesStore {
     const runtime = await this.#runtime;
 
     try {
-      const relativePath = path.relative(runtime.workdir, filePath);
+      const relativePath = toRelativePath(runtime.workdir, filePath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid file path, write '${relativePath}'`);
@@ -749,7 +749,7 @@ export class FilesStore {
   async #readAndSetFile(filePath: string) {
     try {
       const runtime = await this.#runtime;
-      const relativePath = path.relative(runtime.workdir, filePath);
+      const relativePath = toRelativePath(runtime.workdir, filePath);
       const buffer = await runtime.fs.readFileRaw(relativePath);
 
       /**
@@ -784,7 +784,7 @@ export class FilesStore {
     const runtime = await this.#runtime;
 
     try {
-      const relativePath = path.relative(runtime.workdir, filePath);
+      const relativePath = toRelativePath(runtime.workdir, filePath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid file path, create '${relativePath}'`);
@@ -837,7 +837,7 @@ export class FilesStore {
     const runtime = await this.#runtime;
 
     try {
-      const relativePath = path.relative(runtime.workdir, folderPath);
+      const relativePath = toRelativePath(runtime.workdir, folderPath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid folder path, create '${relativePath}'`);
@@ -860,7 +860,7 @@ export class FilesStore {
     const runtime = await this.#runtime;
 
     try {
-      const relativePath = path.relative(runtime.workdir, filePath);
+      const relativePath = toRelativePath(runtime.workdir, filePath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid file path, delete '${relativePath}'`);
@@ -892,7 +892,7 @@ export class FilesStore {
     const runtime = await this.#runtime;
 
     try {
-      const relativePath = path.relative(runtime.workdir, folderPath);
+      const relativePath = toRelativePath(runtime.workdir, folderPath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid folder path, delete '${relativePath}'`);

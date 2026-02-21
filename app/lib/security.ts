@@ -272,12 +272,38 @@ export function withSecurity<T extends (args: ActionFunctionArgs | LoaderFunctio
         responseHeaders.set(key, value);
       });
 
+      /*
+       * For SSE / streaming responses we must NOT re-wrap the body in a new
+       * Response — doing so loses the original controller reference and can
+       * surface EPIPE errors when the client disconnects mid-stream.
+       * Instead, mutate the original response headers in-place and return it.
+       */
+      const contentType = response.headers.get('Content-Type') ?? '';
+      const isStreaming = contentType.includes('text/event-stream') || contentType.includes('application/octet-stream');
+
+      if (isStreaming) {
+        Object.entries(createSecurityHeaders()).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+
+        return response;
+      }
+
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers: responseHeaders,
       });
     } catch (error) {
+      // Silently ignore broken-pipe errors from SSE client disconnects
+      const code = (error as NodeJS.ErrnoException)?.code;
+
+      if (code === 'EPIPE' || code === 'ECONNRESET' || code === 'ERR_STREAM_WRITE_AFTER_END') {
+        logger.debug('Client disconnected during response (ignored):', code);
+
+        return new Response(null, { status: 499, headers: createSecurityHeaders() });
+      }
+
       logger.error('Security-wrapped handler error:', error);
 
       const errorMessage = sanitizeErrorMessage(error, process.env.NODE_ENV === 'development');
