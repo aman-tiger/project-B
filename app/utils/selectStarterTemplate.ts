@@ -960,9 +960,18 @@ ${resolvedName.toLowerCase().includes('shadcn') ? `- Shadcn/ui template: All Rad
   const cnUtilityPaths = ['src/lib/utils.ts', 'lib/utils.ts', 'src/utils.ts', 'utils/cn.ts'];
   const cnUtilityFile = cnUtilityPaths.find((p) => filePaths.includes(p));
 
-  // Determine if the template uses @/ import alias (true for Vite+shadcn and Next.js templates)
+  /*
+   * Determine if the template uses @/ import alias
+   * Check tsconfig.json content for path aliases, fall back to config file detection
+   */
+  const tsconfigFile = filteredFiles.find(
+    (f) => f.path === 'tsconfig.json' || f.name === 'tsconfig.json' || f.path === 'tsconfig.app.json',
+  );
+  const hasPathAliasInTsconfig = tsconfigFile?.content?.includes('"@/') || tsconfigFile?.content?.includes("'@/");
   const usesAtAlias =
-    filePaths.some((fp) => fp.includes('vite.config')) || filePaths.some((fp) => fp.includes('next.config'));
+    hasPathAliasInTsconfig ||
+    filePaths.some((fp) => fp.includes('vite.config')) ||
+    filePaths.some((fp) => fp.includes('next.config'));
 
   // Detect pre-built shadcn/ui components so the LLM uses them instead of recreating
   const shadcnComponentDirs = ['src/components/ui/', 'components/ui/'];
