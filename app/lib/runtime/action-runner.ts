@@ -1,4 +1,4 @@
-import type { RuntimeProvider, DirEntry } from './runtime-provider';
+import type { RuntimeProvider, DirEntry, ProcessResult } from './runtime-provider';
 import { path as nodePath, toRelativePath } from '~/utils/path';
 import { atom, map, type MapStore } from 'nanostores';
 import type {
@@ -656,19 +656,26 @@ export class ActionRunner {
           const hasNewDeps = Object.keys(newAllDeps).some((pkg) => !oldDepsSnapshot![pkg]);
 
           if (hasNewDeps) {
-            logger.info('package.json dependencies changed, running npm install...');
+            logger.info('package.json dependencies changed, running npm install via runtime.exec...');
 
-            const shell = this.#shellTerminal();
-            await shell.ready();
-            await shell.executeCommand(this.runnerId.get(), 'npm install --legacy-peer-deps', () => {
-              /* no-op: auto-install doesn't need abort */
-            });
-            logger.info('npm install completed after package.json update');
+            const installResult = await this.#execNpmInstall(runtime);
+
+            if (installResult.exitCode === 0) {
+              logger.info('npm install completed successfully after package.json update');
+            } else {
+              logger.warn('npm install exited with code', installResult.exitCode);
+              logger.debug('npm install output:', installResult.output);
+
+              this.onAlert?.({
+                type: 'warning',
+                title: 'Dependency Install Warning',
+                description: `npm install finished with warnings (exit code ${installResult.exitCode}). Some packages may not have installed correctly.`,
+              });
+            }
           }
         } catch (installError) {
           logger.error('Failed to auto-install after package.json update:', installError);
 
-          // Warn the user so they know to manually run npm install
           this.onAlert?.({
             type: 'warning',
             title: 'Dependency Install Failed',
@@ -680,6 +687,47 @@ export class ActionRunner {
       logger.error('Failed to write file\n\n', error);
       throw error; // Propagate so the action is marked as failed, not silently completed
     }
+  }
+
+  /**
+   * Run `npm install --legacy-peer-deps` via the server-side runtime exec API.
+   *
+   * This bypasses the interactive terminal entirely, using `child_process.exec`
+   * on the server. Much more reliable than the marker-based DevonzShell approach
+   * because it doesn't contend with the dev-server shell session.
+   *
+   * Retries up to 3 times with exponential backoff (1s, 2s, 4s) on failure.
+   */
+  async #execNpmInstall(runtime: RuntimeProvider, retries = 3): Promise<ProcessResult> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await runtime.exec('npm install --legacy-peer-deps');
+
+        if (result.exitCode === 0 || attempt === retries) {
+          return result;
+        }
+
+        // Non-zero exit — retry with backoff
+        const delay = 1000 * 2 ** (attempt - 1); // 1s, 2s, 4s
+        logger.warn(
+          `npm install attempt ${attempt}/${retries} failed (exit ${result.exitCode}), retrying in ${delay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } catch (error) {
+        if (attempt === retries) {
+          logger.error(`npm install attempt ${attempt}/${retries} threw:`, error);
+
+          return { exitCode: 1, output: String(error) };
+        }
+
+        const delay = 1000 * 2 ** (attempt - 1);
+        logger.warn(`npm install attempt ${attempt}/${retries} threw, retrying in ${delay}ms...`, error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    // Unreachable, but satisfies TypeScript
+    return { exitCode: 1, output: 'All retry attempts exhausted' };
   }
 
   /**
@@ -901,18 +949,14 @@ export class ActionRunner {
         await runtime.fs.writeFile('package.json', JSON.stringify(pkgJson, null, 2));
         logger.info('Updated package.json with missing dependencies');
 
-        // Run npm install to fetch the newly added packages
-        const shell = this.#shellTerminal();
-        await shell.ready();
+        // Run npm install via runtime.exec — bypasses the terminal for reliability
+        const installResult = await this.#execNpmInstall(runtime);
 
-        const installResult = await shell.executeCommand(this.runnerId.get(), 'npm install --legacy-peer-deps', () => {
-          /* no-op: dependency validation install doesn't need abort */
-        });
-
-        if (installResult?.exitCode === 0) {
+        if (installResult.exitCode === 0) {
           logger.info('npm install completed successfully after dependency validation');
         } else {
-          logger.warn('npm install had non-zero exit code after dependency validation:', installResult?.exitCode);
+          logger.warn('npm install had non-zero exit code after dependency validation:', installResult.exitCode);
+          logger.debug('npm install output:', installResult.output);
         }
       } else {
         logger.debug('Dependency validation passed: all imported packages are in package.json');
