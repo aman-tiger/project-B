@@ -61,9 +61,8 @@ class ClientFileSystem implements RuntimeFileSystem {
 
     const response = await fetch(`/api/runtime/fs?${params}&op=readFile`);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to read file "${path}": ${error}`);
+    if (!response.ok || response.status === 204) {
+      throw new Error(`Failed to read file "${path}": not found`);
     }
 
     return response.text();
@@ -78,9 +77,8 @@ class ClientFileSystem implements RuntimeFileSystem {
 
     const response = await fetch(`/api/runtime/fs?${params}`);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to read file "${path}": ${error}`);
+    if (!response.ok || response.status === 204) {
+      throw new Error(`Failed to read file "${path}": not found`);
     }
 
     const buffer = await response.arrayBuffer();

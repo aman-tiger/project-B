@@ -51,11 +51,17 @@ async function fsLoader({ request }: LoaderFunctionArgs) {
         return new Response(content, {
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Read failed';
+      } catch {
         logger.debug(`readFile not found: ${filePath}`);
 
-        return json({ error: message }, { status: 404 });
+        /*
+         * Use 204 (No Content) instead of 404 for missing files.
+         * Browsers auto-log 404 fetch responses as console errors,
+         * which creates noise during git clone operations where
+         * isomorphic-git probes many non-existent files. 204 is
+         * not logged and the client checks for it explicitly.
+         */
+        return new Response(null, { status: 204 });
       }
     }
 
@@ -66,11 +72,10 @@ async function fsLoader({ request }: LoaderFunctionArgs) {
         return new Response(Buffer.from(data), {
           headers: { 'Content-Type': 'application/octet-stream' },
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Read failed';
+      } catch {
         logger.debug(`readFileRaw not found: ${filePath}`);
 
-        return json({ error: message }, { status: 404 });
+        return new Response(null, { status: 204 });
       }
     }
 
