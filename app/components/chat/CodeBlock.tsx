@@ -1,5 +1,11 @@
 import { memo, useEffect, useState } from 'react';
-import { bundledLanguages, codeToHtml, isSpecialLang, type BundledLanguage, type SpecialLanguage } from 'shiki';
+import {
+  bundledLanguages,
+  isSpecialLang,
+  getSharedHighlighter,
+  type BundledLanguage,
+  type SpecialLanguage,
+} from '~/utils/shiki-highlighter';
 import { classNames } from '~/utils/classNames';
 import { createScopedLogger } from '~/utils/logger';
 
@@ -47,7 +53,8 @@ export const CodeBlock = memo(
       logger.trace(`Language = ${effectiveLanguage}`);
 
       const processCode = async () => {
-        setHTML(await codeToHtml(code, { lang: effectiveLanguage, theme }));
+        const highlighter = await getSharedHighlighter();
+        setHTML(highlighter.codeToHtml(code, { lang: effectiveLanguage, theme }));
       };
 
       processCode();

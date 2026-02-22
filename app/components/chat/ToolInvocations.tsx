@@ -1,7 +1,12 @@
 import type { ToolInvocationUIPart } from '@ai-sdk/ui-utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki';
+import {
+  getSharedHighlighter,
+  type BundledLanguage,
+  type BundledTheme,
+  type HighlighterGeneric,
+} from '~/utils/shiki-highlighter';
 import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -45,13 +50,8 @@ const SHIKI_PURIFY_CONFIG = {
   ALLOW_ARIA_ATTR: false,
 };
 
-const highlighterOptions = {
-  langs: ['json'],
-  themes: ['light-plus', 'dark-plus'],
-};
-
 const jsonHighlighter: HighlighterGeneric<BundledLanguage, BundledTheme> =
-  import.meta.hot?.data.jsonHighlighter ?? (await createHighlighter(highlighterOptions));
+  import.meta.hot?.data.jsonHighlighter ?? (await getSharedHighlighter());
 
 if (import.meta.hot) {
   import.meta.hot.data.jsonHighlighter = jsonHighlighter;

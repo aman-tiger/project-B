@@ -8,22 +8,24 @@ import { SendButton } from './SendButton.client';
 import { IconButton } from '~/components/ui/IconButton';
 import { toast } from 'react-toastify';
 import { SpeechRecognitionButton } from '~/components/chat/SpeechRecognition';
-import { SupabaseConnection } from './SupabaseConnection';
-import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import { Dialog, DialogRoot, DialogTitle, DialogDescription } from '~/components/ui/Dialog';
 import styles from './BaseChat.module.scss';
 import type { ProviderInfo } from '~/types/model';
 import type { ModelInfo } from '~/lib/modules/llm/types';
-import { ColorSchemeDialog } from '~/components/ui/ColorSchemeDialog';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/inspector-types';
-import { McpTools } from './MCPTools';
-import { WebSearch } from './WebSearch.client';
 import { ChatModeSelector } from './ChatModeSelector';
 import { AgentToggle } from './AgentToggle';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TabType } from '~/components/@settings/core/types';
 
+const SupabaseConnection = lazy(() => import('./SupabaseConnection').then((m) => ({ default: m.SupabaseConnection })));
+const ExpoQrModal = lazy(() => import('~/components/workbench/ExpoQrModal').then((m) => ({ default: m.ExpoQrModal })));
+const ColorSchemeDialog = lazy(() =>
+  import('~/components/ui/ColorSchemeDialog').then((m) => ({ default: m.ColorSchemeDialog })),
+);
+const McpTools = lazy(() => import('./MCPTools').then((m) => ({ default: m.McpTools })));
+const WebSearch = lazy(() => import('./WebSearch.client').then((m) => ({ default: m.WebSearch })));
 const ControlPanel = lazy(() =>
   import('~/components/@settings/core/ControlPanel').then((m) => ({ default: m.ControlPanel })),
 );
@@ -372,8 +374,10 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               </IconButton>
             </div>
 
-            <SupabaseConnection />
-            <ExpoQrModal open={props.qrModalOpen} onClose={() => props.setQrModalOpen(false)} />
+            <Suspense>
+              <SupabaseConnection />
+              <ExpoQrModal open={props.qrModalOpen} onClose={() => props.setQrModalOpen(false)} />
+            </Suspense>
           </div>
 
           {/* Secondary toolbar row — slides down below primary */}
@@ -386,15 +390,17 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: 'easeInOut' }}
               >
-                <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
-                <McpTools />
-                <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>
-                  <div className="i-ph:paperclip text-xl"></div>
-                </IconButton>
-                <WebSearch
-                  onSearchResult={(result) => props.onWebSearchResult?.(result)}
-                  disabled={props.isStreaming}
-                />
+                <Suspense>
+                  <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
+                  <McpTools />
+                  <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>
+                    <div className="i-ph:paperclip text-xl"></div>
+                  </IconButton>
+                  <WebSearch
+                    onSearchResult={(result) => props.onWebSearchResult?.(result)}
+                    disabled={props.isStreaming}
+                  />
+                </Suspense>
               </motion.div>
             )}
           </AnimatePresence>

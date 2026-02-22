@@ -1,10 +1,12 @@
+import { lazy, Suspense } from 'react';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
 import { ImportFolderButton } from '~/components/chat/ImportFolderButton';
 import { Button } from '~/components/ui/Button';
 import { classNames } from '~/utils/classNames';
-import GitCloneButton from './GitCloneButton';
 import type { ImportChatFn } from '~/lib/persistence/db';
+
+const GitCloneButton = lazy(() => import('./GitCloneButton'));
 
 type ChatData = {
   messages?: Message[];
@@ -111,11 +113,13 @@ export function LeftActionPanel({ importChat }: LeftActionPanelProps) {
 
       {/* Clone a Repo Button - Primary/Highlighted */}
       <div className="flex h-10">
-        <GitCloneButton
-          importChat={importChat}
-          className={primaryButtonClass}
-          style={{ width: '100%', height: '100%' }}
-        />
+        <Suspense>
+          <GitCloneButton
+            importChat={importChat}
+            className={primaryButtonClass}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Suspense>
       </div>
     </div>
   );

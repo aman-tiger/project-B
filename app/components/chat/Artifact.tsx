@@ -2,7 +2,13 @@ import { useStore } from '@nanostores/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki';
+import {
+  bundledLanguages,
+  getSharedHighlighter,
+  type BundledLanguage,
+  type BundledTheme,
+  type HighlighterGeneric,
+} from '~/utils/shiki-highlighter';
 import type { ActionState } from '~/lib/runtime/action-runner';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { getChangeForFile } from '~/lib/stores/staging';
@@ -17,13 +23,8 @@ import {
   truncateFilePath,
 } from './artifact-utils';
 
-const highlighterOptions = {
-  langs: ['shell', 'typescript', 'javascript', 'tsx', 'jsx', 'css', 'html', 'json', 'markdown', 'python'],
-  themes: ['light-plus', 'dark-plus'],
-};
-
 const codeHighlighter: HighlighterGeneric<BundledLanguage, BundledTheme> =
-  import.meta.hot?.data.codeHighlighter ?? (await createHighlighter(highlighterOptions));
+  import.meta.hot?.data.codeHighlighter ?? (await getSharedHighlighter());
 
 if (import.meta.hot) {
   import.meta.hot.data.codeHighlighter = codeHighlighter;
@@ -215,8 +216,8 @@ function CodeBlock({ className, code, language = 'shell', maxLines }: CodeBlockP
     return code;
   }, [code, maxLines]);
 
-  // Ensure language is supported, fallback to plaintext
-  const lang = highlighterOptions.langs.includes(language) ? language : 'shell';
+  // Ensure language is supported, fallback to shell
+  const lang = language in bundledLanguages ? language : 'shell';
 
   /*
    * SECURITY NOTE: dangerouslySetInnerHTML usage is safe here because:

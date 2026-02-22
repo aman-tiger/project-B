@@ -1,11 +1,9 @@
 import type { JSONValue, Message } from 'ai';
-import React, { type RefCallback, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { type RefCallback, lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
-import { Workbench } from '~/components/workbench/Workbench.client';
 import { classNames } from '~/utils/classNames';
 import { PROVIDER_LIST } from '~/utils/constants';
-import { Messages } from './Messages.client';
 import { getApiKeysFromCookies } from './APIKeyManager';
 import Cookies from 'js-cookie';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -15,24 +13,28 @@ import { TemplateSection } from '~/components/chat/TemplateSection';
 import type { ProviderInfo } from '~/types/model';
 import type { ActionAlert, SupabaseAlert, DeployAlert, LlmErrorAlertType } from '~/types/actions';
 import type { ImportChatFn } from '~/lib/persistence/db';
-import DeployChatAlert from '~/components/deploy/DeployAlert';
-import ChatAlert from './ChatAlert';
 import type { ModelInfo } from '~/lib/modules/llm/types';
 import ProgressCompilation from './ProgressCompilation';
 import type { ProgressAnnotation } from '~/types/context';
-import { SupabaseChatAlert } from '~/components/chat/SupabaseAlert';
 import { expoUrlAtom } from '~/lib/stores/qrCode';
-
 import { workbenchStore } from '~/lib/stores/workbench';
 import { useStore } from '@nanostores/react';
 import { StickToBottom, useStickToBottomContext } from '~/lib/hooks';
 import { ChatBox } from './ChatBox';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/inspector-types';
-import LlmErrorAlert from './LLMApiAlert';
 import { ResizeHandle } from '~/components/ui/ResizeHandle';
 import { PanelErrorBoundary } from '~/components/ui/PanelErrorBoundary';
 import { createScopedLogger } from '~/utils/logger';
+
+const Workbench = lazy(() => import('~/components/workbench/Workbench.client').then((m) => ({ default: m.Workbench })));
+const Messages = lazy(() => import('./Messages.client').then((m) => ({ default: m.Messages })));
+const DeployChatAlert = lazy(() => import('~/components/deploy/DeployAlert'));
+const ChatAlert = lazy(() => import('./ChatAlert'));
+const SupabaseChatAlert = lazy(() =>
+  import('~/components/chat/SupabaseAlert').then((m) => ({ default: m.SupabaseChatAlert })),
+);
+const LlmErrorAlert = lazy(() => import('./LLMApiAlert'));
 
 const logger = createScopedLogger('BaseChat');
 
@@ -433,18 +435,20 @@ export const BaseChat = React.memo(
                     <ClientOnly>
                       {() => {
                         return chatStarted ? (
-                          <Messages
-                            key="messages-component"
-                            className="flex flex-col w-full flex-1 max-w-chat pb-4 mx-auto z-1"
-                            messages={messages}
-                            isStreaming={isStreaming}
-                            append={append}
-                            chatMode={chatMode}
-                            setChatMode={setChatMode}
-                            provider={provider}
-                            model={model}
-                            addToolResult={addToolResult}
-                          />
+                          <Suspense>
+                            <Messages
+                              key="messages-component"
+                              className="flex flex-col w-full flex-1 max-w-chat pb-4 mx-auto z-1"
+                              messages={messages}
+                              isStreaming={isStreaming}
+                              append={append}
+                              chatMode={chatMode}
+                              setChatMode={setChatMode}
+                              provider={provider}
+                              model={model}
+                              addToolResult={addToolResult}
+                            />
+                          </Suspense>
                         ) : null;
                       }}
                     </ClientOnly>
@@ -456,39 +460,41 @@ export const BaseChat = React.memo(
                     })}
                   >
                     <div className="flex flex-col gap-2">
-                      {deployAlert && (
-                        <DeployChatAlert
-                          alert={deployAlert}
-                          clearAlert={() => clearDeployAlert?.()}
-                          postMessage={(message: string | undefined) => {
-                            sendMessage?.(undefined, message);
-                            clearSupabaseAlert?.();
-                          }}
-                        />
-                      )}
-                      {supabaseAlert && (
-                        <SupabaseChatAlert
-                          alert={supabaseAlert}
-                          clearAlert={() => clearSupabaseAlert?.()}
-                          postMessage={(message) => {
-                            sendMessage?.(undefined, message);
-                            clearSupabaseAlert?.();
-                          }}
-                        />
-                      )}
-                      {actionAlert && (
-                        <ChatAlert
-                          alert={actionAlert}
-                          clearAlert={() => clearAlert?.()}
-                          postMessage={(message) => {
-                            sendMessage?.(undefined, message);
-                            clearAlert?.();
-                          }}
-                        />
-                      )}
-                      {llmErrorAlert && (
-                        <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
-                      )}
+                      <Suspense>
+                        {deployAlert && (
+                          <DeployChatAlert
+                            alert={deployAlert}
+                            clearAlert={() => clearDeployAlert?.()}
+                            postMessage={(message: string | undefined) => {
+                              sendMessage?.(undefined, message);
+                              clearSupabaseAlert?.();
+                            }}
+                          />
+                        )}
+                        {supabaseAlert && (
+                          <SupabaseChatAlert
+                            alert={supabaseAlert}
+                            clearAlert={() => clearSupabaseAlert?.()}
+                            postMessage={(message) => {
+                              sendMessage?.(undefined, message);
+                              clearSupabaseAlert?.();
+                            }}
+                          />
+                        )}
+                        {actionAlert && (
+                          <ChatAlert
+                            alert={actionAlert}
+                            clearAlert={() => clearAlert?.()}
+                            postMessage={(message) => {
+                              sendMessage?.(undefined, message);
+                              clearAlert?.();
+                            }}
+                          />
+                        )}
+                        {llmErrorAlert && (
+                          <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
+                        )}
+                      </Suspense>
                     </div>
                     {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
 
@@ -570,13 +576,15 @@ export const BaseChat = React.memo(
             <ClientOnly>
               {() => (
                 <PanelErrorBoundary panelName="Workbench">
-                  <Workbench
-                    chatStarted={chatStarted}
-                    isStreaming={isStreaming}
-                    setSelectedElement={setSelectedElement}
-                    width={showChat ? workbenchWidth : undefined}
-                    fullWidth={!showChat}
-                  />
+                  <Suspense>
+                    <Workbench
+                      chatStarted={chatStarted}
+                      isStreaming={isStreaming}
+                      setSelectedElement={setSelectedElement}
+                      width={showChat ? workbenchWidth : undefined}
+                      fullWidth={!showChat}
+                    />
+                  </Suspense>
                 </PanelErrorBoundary>
               )}
             </ClientOnly>
