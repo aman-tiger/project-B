@@ -12,6 +12,8 @@ export function UpdateBanner() {
 
   const [visible, setVisible] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'updating' | 'success' | 'error'>('idle');
+  const [updateMessage, setUpdateMessage] = useState('');
 
   const shouldRender = updateAvailable || (!!error && !updateAvailable);
 
@@ -27,6 +29,28 @@ export function UpdateBanner() {
 
     return undefined;
   }, [shouldRender]);
+
+  const handleUpdate = async () => {
+    setUpdateStatus('updating');
+    setUpdateMessage('');
+
+    try {
+      const res = await fetch('/api/update', { method: 'POST' });
+      const data = await res.json();
+
+      if (data.success) {
+        setUpdateStatus('success');
+        setUpdateMessage(data.message);
+        setTimeout(() => window.location.reload(), 3000);
+      } else {
+        setUpdateStatus('error');
+        setUpdateMessage(data.message);
+      }
+    } catch {
+      setUpdateStatus('error');
+      setUpdateMessage('Failed to connect to update server');
+    }
+  };
 
   if (!shouldRender) {
     return null;
@@ -104,12 +128,50 @@ export function UpdateBanner() {
         {/* Right: actions */}
         <div className="flex items-center gap-3 flex-shrink-0">
           {!isDocker ? (
-            <code
-              className="px-1.5 py-0.5 rounded text-[11px]"
-              style={{ backgroundColor: '#2a2a2a', color: '#9ca3af' }}
-            >
-              pnpm run update
-            </code>
+            <span className="flex items-center gap-2">
+              {updateStatus === 'idle' && (
+                <button
+                  type="button"
+                  onClick={handleUpdate}
+                  className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-md transition-colors bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+                >
+                  <span className="i-ph:arrow-circle-up text-sm" />
+                  Update Now
+                </button>
+              )}
+              {updateStatus === 'updating' && (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-md"
+                  style={{ backgroundColor: '#2a2a2a', color: '#9ca3af', cursor: 'not-allowed' }}
+                >
+                  <span className="i-svg-spinners:90-ring-with-bg text-sm" />
+                  Updating…
+                </button>
+              )}
+              {updateStatus === 'success' && (
+                <span className="inline-flex items-center gap-1 text-xs" style={{ color: '#22c55e' }}>
+                  <span className="i-ph:check-circle text-sm" />
+                  Updated! Reloading…
+                </span>
+              )}
+              {updateStatus === 'error' && (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1" style={{ color: '#ef4444' }}>
+                    <span className="i-ph:warning text-sm" />
+                    {updateMessage}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleUpdate}
+                    className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-md transition-colors bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+                  >
+                    Retry
+                  </button>
+                </span>
+              )}
+            </span>
           ) : (
             <span className="flex items-center gap-2">
               <code
