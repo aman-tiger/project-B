@@ -36,7 +36,7 @@ export interface AutoFixError {
  * Classified error with actionable context
  */
 interface ClassifiedError {
-  category: 'import-resolution' | 'syntax' | 'type' | 'runtime' | 'build' | 'unknown';
+  category: 'import-resolution' | 'syntax' | 'type' | 'runtime' | 'build' | 'port-conflict' | 'unknown';
   missingPackage?: string;
   sourceFile?: string;
   fixInstructions: string;
@@ -485,6 +485,26 @@ function classifyError(error: AutoFixError): ClassifiedError {
         '1. Read the error output above carefully — the root cause is usually stated before "Build failed"',
         '2. Common causes: missing imports, type errors, syntax errors, missing dependencies',
         '3. Fix the root cause error first, then the build will succeed',
+      ].join('\n'),
+    };
+  }
+
+  // ─── Pattern: EADDRINUSE (port conflict) ───
+  if (/EADDRINUSE|address already in use|port\s+\d+\s+is\s+(?:already\s+)?in\s+use/i.test(content)) {
+    const portMatch = content.match(/(?:port\s+|:)(\d+)/i);
+    const conflictPort = portMatch?.[1] ?? 'unknown';
+
+    return {
+      category: 'port-conflict',
+      fixInstructions: [
+        `**Root Cause**: Port ${conflictPort} is already in use by another process.`,
+        '',
+        '**Required Fix**:',
+        '1. Do NOT change the application code — the port conflict is an environment issue',
+        '2. Restart the dev server with a different port by running: `npm run dev -- --port 3001` as a start action',
+        '3. If the error persists, try port 3002, 3003, etc.',
+        '',
+        '**CRITICAL**: Do NOT rewrite vite.config, next.config, or package.json to hardcode a different port.',
       ].join('\n'),
     };
   }

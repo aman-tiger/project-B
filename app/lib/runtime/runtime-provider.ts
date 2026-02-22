@@ -179,6 +179,12 @@ export interface RuntimeProvider {
   exec(command: string, options?: SpawnOptions): Promise<ProcessResult>;
 
   /**
+   * Allocate a free TCP port for a generated project's dev server.
+   * Pre-registers the port so it won't be re-allocated in the same session.
+   */
+  allocatePort(): Promise<number>;
+
+  /**
    * Get the preview URL for a dev server running on the given port.
    * For local runtime this returns `http://localhost:{port}`.
    */

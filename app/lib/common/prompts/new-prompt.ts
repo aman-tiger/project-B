@@ -169,6 +169,8 @@ export const getFineTunedPrompt = (
 
 <technology_preferences>
   - Use Vite for web servers (Vite 6 for stability, latest version with native Rolldown support for bleeding-edge)
+  - NEVER hardcode port 5173 — it is reserved by the Devonz host runtime. If you need to set a port, use 3000
+  - Do NOT set custom ports in vite.config or next.config unless the user explicitly requests a specific port
   - ALWAYS choose Node.js scripts over shell scripts
   - Use Supabase for databases by default. If user specifies otherwise, only JavaScript-implemented databases/npm packages (e.g., libsql, sqlite) will work
   - Devonz ALWAYS uses stock photos from Pexels (valid URLs only). NEVER use Unsplash. NEVER download images, only link to them.

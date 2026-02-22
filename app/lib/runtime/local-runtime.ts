@@ -14,6 +14,7 @@
 import { spawn, exec, execSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import * as net from 'node:net';
 import * as nodePath from 'node:path';
 import * as os from 'node:os';
 import { initGitRepo } from './git-manager';
@@ -120,6 +121,36 @@ function killPortHolder(port: number): void {
   } catch {
     // No process found on the port — nothing to kill
   }
+}
+
+/**
+ * Find a free TCP port in the given range.
+ * Skips the host app's own port to avoid preview conflicts.
+ */
+async function findFreePort(startPort = 3000, endPort = 9000): Promise<number> {
+  const hostPort = parseInt(process.env.PORT || '5173', 10);
+
+  for (let port = startPort; port <= endPort; port++) {
+    if (port === hostPort) {
+      continue;
+    }
+
+    const isFree = await new Promise<boolean>((resolve) => {
+      const server = net.createServer();
+
+      server.once('error', () => resolve(false));
+      server.once('listening', () => {
+        server.close(() => resolve(true));
+      });
+      server.listen(port, '127.0.0.1');
+    });
+
+    if (isFree) {
+      return port;
+    }
+  }
+
+  throw new Error(`No free port found in range ${startPort}-${endPort}`);
 }
 
 /** Regex patterns to detect port announcements in process output. */
@@ -370,6 +401,19 @@ export class LocalRuntime implements RuntimeProvider {
         },
       );
     });
+  }
+
+  /**
+   * Allocate a free port for a generated project's dev server.
+   * Pre-registers the port in `#detectedPorts` so it won't be re-allocated
+   * to another project in the same session.
+   */
+  async allocatePort(): Promise<number> {
+    const port = await findFreePort();
+    this.#detectedPorts.add(port);
+    logger.info(`Allocated port ${port} for project "${this.#projectId}"`);
+
+    return port;
   }
 
   getPreviewUrl(port: number): string {

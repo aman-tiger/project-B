@@ -513,6 +513,14 @@ export class ActionRunner {
       unreachable('Shell terminal not found');
     }
 
+    // Allocate a free port for the dev server to avoid EADDRINUSE conflicts
+    const runtime = await this.#runtime;
+    const freePort = await runtime.allocatePort();
+    const portEnvPrefix = process.platform === 'win32' ? `set PORT=${freePort}&&` : `PORT=${freePort}`;
+    const commandWithPort = `${portEnvPrefix} ${action.content}`;
+
+    logger.info(`Starting dev server on allocated port ${freePort}: ${action.content}`);
+
     /*
      * Dev servers (npm run dev, vite, etc.) run indefinitely and never exit,
      * so shell.executeCommand() would never resolve. We race the execution
@@ -522,7 +530,7 @@ export class ActionRunner {
      */
     const SERVER_READY_TIMEOUT = 5000;
 
-    const execPromise = shell.executeCommand(this.runnerId.get(), action.content, () => {
+    const execPromise = shell.executeCommand(this.runnerId.get(), commandWithPort, () => {
       logger.debug(`[${action.type}]:Aborting Action\n\n`, action);
       action.abort();
     });

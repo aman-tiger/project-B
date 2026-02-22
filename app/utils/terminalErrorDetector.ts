@@ -525,10 +525,6 @@ const IGNORE_PATTERNS: RegExp[] = [
   // Ignore successful messages
   /successfully/i,
   /completed/i,
-
-  // Ignore port-in-use messages — dev servers auto-retry on next available port
-  /port\s+\d+\s+is\s+(?:already\s+)?in\s+use/i,
-  /EADDRINUSE/i,
 ];
 
 /**
