@@ -22,6 +22,11 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let cache: { data: VersionCheckResponse; timestamp: number } | null = null;
 
+/** Clear the cached version-check response (e.g. after a successful update). */
+export function clearVersionCheckCache() {
+  cache = null;
+}
+
 const GITHUB_HEADERS = {
   Accept: 'application/vnd.github.v3+json',
   'User-Agent': 'Devonz-UpdateCheck',

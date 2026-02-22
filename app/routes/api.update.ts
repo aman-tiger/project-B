@@ -1,5 +1,6 @@
 import { json, type ActionFunctionArgs } from '@remix-run/node';
 import { withSecurity } from '~/lib/security';
+import { clearVersionCheckCache } from './api.version-check';
 
 interface StepResult {
   name: string;
@@ -148,6 +149,9 @@ async function updateAction(_args: ActionFunctionArgs) {
     } catch {
       // git info not critical
     }
+
+    // Clear cached version-check so the banner disappears after reload
+    clearVersionCheckCache();
 
     return json<UpdateResponse>({
       success: true,
