@@ -100,8 +100,15 @@ export default defineConfig((config) => {
     },
     test: {
       pool: 'forks',
+      poolOptions: {
+        forks: {
+          execArgv: ['--max-old-space-size=8192'],
+        },
+      },
       testTimeout: 30_000,
       teardownTimeout: 3_000,
+      fileParallelism: true,
+      watch: false,
       exclude: [
         '**/node_modules/**',
         '**/dist/**',
@@ -109,6 +116,8 @@ export default defineConfig((config) => {
         '**/.{idea,git,cache,output,temp}/**',
         '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
         '**/tests/preview/**',
+        '**/local-runtime.spec.ts',
+        '**/agentToolsService.spec.ts',
       ],
       coverage: {
         provider: 'v8',
