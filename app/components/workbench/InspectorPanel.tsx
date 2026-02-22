@@ -13,6 +13,7 @@ import { useState, useCallback, memo } from 'react';
 import type { UseInspectorReturn } from '~/lib/hooks/useInspector';
 import type { InspectorTab } from '~/lib/inspector/types';
 import { RELEVANT_STYLE_PROPS } from '~/lib/inspector/types';
+import { toHex } from '~/utils/color';
 import { setPendingChatMessage } from '~/lib/stores/chat';
 import { BoxModelEditor } from './BoxModelEditor';
 import { AiQuickActions } from './AIQuickActions';
@@ -58,16 +59,12 @@ const parseColorFromValue = (value: string): string | null => {
 
 /* ─── Tab config ───────────────────────────────────────────────────── */
 
-const TABS: InspectorTab[] = ['styles', 'text', 'box', 'ai', 'tree', 'colors', 'layout'];
+const TABS: InspectorTab[] = ['styles', 'box', 'ai'];
 
 const TAB_LABELS: Record<InspectorTab, string> = {
-  styles: 'styles',
-  text: 'text',
-  box: 'box',
+  styles: 'Styles',
+  box: 'Box',
   ai: 'AI',
-  tree: '🌳',
-  colors: '🎨',
-  layout: '📐',
 };
 
 /* ─── Props ────────────────────────────────────────────────────────── */
@@ -193,7 +190,7 @@ export const InspectorPanel = memo(({ inspector }: InspectorPanelProps) => {
   /* ── Render ────────────────────────────────────────────────────── */
 
   return (
-    <div className="fixed right-4 top-20 w-80 bg-devonz-elements-background-depth-2 border border-devonz-elements-borderColor rounded-lg shadow-lg z-[9999] max-h-[calc(100vh-6rem)] overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-devonz-elements-background-depth-2 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-devonz-elements-borderColor bg-devonz-elements-background-depth-3">
         <div className="flex items-center gap-2">
@@ -260,115 +257,113 @@ export const InspectorPanel = memo(({ inspector }: InspectorPanelProps) => {
 
       {/* Tab content */}
       <div
-        className="p-3 overflow-y-auto max-h-80 bg-devonz-elements-background-depth-2"
+        className="p-3 overflow-y-auto flex-1 min-h-0 bg-devonz-elements-background-depth-2"
         role="tabpanel"
         id={`inspector-tabpanel-${activeTab}`}
       >
         {activeTab === 'styles' && (
-          <div className="space-y-2">
-            {/* Copy all computed styles */}
-            <button
-              onClick={handleCopyAllStyles}
-              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded border border-devonz-elements-borderColor bg-devonz-elements-background-depth-3 text-devonz-elements-textSecondary hover:bg-devonz-elements-background-depth-4 hover:text-devonz-elements-textPrimary transition-colors mb-3"
-            >
-              <span className="i-ph:clipboard w-3.5 h-3.5" aria-hidden="true" />
-              {copyFeedback || 'Copy All Styles'}
-            </button>
+          <div className="space-y-4">
+            {/* Text Content section (merged from Text tab) */}
+            {selectedElement.textContent && (
+              <div className="space-y-1.5 pb-3 border-b border-devonz-elements-borderColor">
+                <label
+                  htmlFor="inspector-text-content"
+                  className="text-xs font-medium text-devonz-elements-textSecondary block"
+                >
+                  Text Content
+                </label>
+                <textarea
+                  id="inspector-text-content"
+                  value={pendingTextEdit || selectedElement.textContent}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  className="w-full bg-devonz-elements-background-depth-3 border border-devonz-elements-borderColor rounded px-2 py-2 text-devonz-elements-textPrimary text-sm focus:outline-none focus:border-accent-400 resize-none"
+                  rows={2}
+                  placeholder="Enter text content..."
+                />
+              </div>
+            )}
 
-            {Object.entries(getRelevantStyles(selectedElement.styles)).map(([prop, value]) => {
-              const editedValue = pendingEdits[prop] ?? value;
-              const color = isColorProperty(prop) ? parseColorFromValue(editedValue) : null;
+            {/* CSS Properties */}
+            <div className="space-y-2">
+              <button
+                onClick={handleCopyAllStyles}
+                className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded border border-devonz-elements-borderColor bg-devonz-elements-background-depth-3 text-devonz-elements-textSecondary hover:bg-devonz-elements-background-depth-4 hover:text-devonz-elements-textPrimary transition-colors mb-3"
+              >
+                <span className="i-ph:clipboard w-3.5 h-3.5" aria-hidden="true" />
+                {copyFeedback || 'Copy All Styles'}
+              </button>
 
-              return (
-                <div key={prop} className="flex items-center gap-2 text-xs">
-                  <span className="text-devonz-elements-textSecondary min-w-[100px] truncate" title={prop}>
-                    {prop}:
-                  </span>
-                  <div className="flex-1 flex items-center gap-1">
-                    {color && (
-                      <div className="relative w-6 h-6 rounded overflow-hidden border border-devonz-elements-borderColor">
-                        <input
-                          type="color"
-                          value={color.startsWith('#') ? color : '#000000'}
-                          onChange={(e) => handleStyleChange(prop, e.target.value)}
-                          className="absolute inset-0 w-[200%] h-[200%] -top-1 -left-1 cursor-pointer border-0 p-0 m-0"
-                          style={{ background: 'transparent' }}
-                          title={`Pick color for ${prop}`}
-                          aria-label={`Color picker for ${prop}`}
-                        />
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      spellCheck={false}
-                      value={editedValue}
-                      onChange={(e) => handleStyleChange(prop, e.target.value)}
-                      className="flex-1 bg-devonz-elements-background-depth-3 border border-devonz-elements-borderColor rounded px-2 py-1 text-devonz-elements-textPrimary font-mono text-xs focus:outline-none focus:border-accent-400"
-                      aria-label={`Value for ${prop}`}
-                    />
+              {Object.entries(getRelevantStyles(selectedElement.styles)).map(([prop, value]) => {
+                const editedValue = pendingEdits[prop] ?? value;
+                const color = isColorProperty(prop) ? parseColorFromValue(editedValue) : null;
+
+                return (
+                  <div key={prop} className="flex items-center gap-2 text-xs">
+                    <span className="text-devonz-elements-textSecondary min-w-[100px] truncate" title={prop}>
+                      {prop}:
+                    </span>
+                    <div className="flex-1 flex items-center gap-1">
+                      {color && (
+                        <div className="relative w-6 h-6 rounded overflow-hidden border border-devonz-elements-borderColor">
+                          <input
+                            type="color"
+                            value={toHex(color)}
+                            onChange={(e) => handleStyleChange(prop, e.target.value)}
+                            className="absolute inset-0 w-[200%] h-[200%] -top-1 -left-1 cursor-pointer border-0 p-0 m-0"
+                            style={{ background: 'transparent' }}
+                            title={`Pick color for ${prop}`}
+                            aria-label={`Color picker for ${prop}`}
+                          />
+                        </div>
+                      )}
+                      <input
+                        type="text"
+                        spellCheck={false}
+                        value={editedValue}
+                        onChange={(e) => handleStyleChange(prop, e.target.value)}
+                        className="flex-1 bg-devonz-elements-background-depth-3 border border-devonz-elements-borderColor rounded px-2 py-1 text-devonz-elements-textPrimary font-mono text-xs focus:outline-none focus:border-accent-400"
+                        aria-label={`Value for ${prop}`}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {Object.keys(getRelevantStyles(selectedElement.styles)).length === 0 && (
-              <p className="text-devonz-elements-textSecondary text-xs italic">No editable styles found</p>
+              {Object.keys(getRelevantStyles(selectedElement.styles)).length === 0 && (
+                <p className="text-devonz-elements-textSecondary text-xs italic">No editable styles found</p>
+              )}
+            </div>
+
+            {/* Page Color Palette (merged from Colors tab) */}
+            {selectedElement.colors && selectedElement.colors.length > 0 && (
+              <div className="pt-3 border-t border-devonz-elements-borderColor">
+                <PageColorPalette
+                  colors={selectedElement.colors}
+                  onColorSelect={(color) => handleStyleChange('background-color', color)}
+                />
+              </div>
             )}
           </div>
         )}
 
-        {activeTab === 'text' && (
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="inspector-text-content" className="text-xs text-devonz-elements-textSecondary block mb-1">
-                Text Content
-              </label>
-              <textarea
-                id="inspector-text-content"
-                value={pendingTextEdit || selectedElement.textContent}
-                onChange={(e) => handleTextChange(e.target.value)}
-                className="w-full bg-devonz-elements-background-depth-3 border border-devonz-elements-borderColor rounded px-2 py-2 text-devonz-elements-textPrimary text-sm focus:outline-none focus:border-accent-400 resize-none"
-                rows={4}
-                placeholder="Enter text content..."
-              />
-            </div>
-            <p className="text-devonz-elements-textTertiary text-xs">
-              Changes apply instantly to the preview. Note: Only works for simple text elements.
-            </p>
-          </div>
-        )}
-
         {activeTab === 'box' && (
-          <BoxModelEditor boxModel={selectedElement.boxModel ?? null} onValueChange={handleStyleChange} />
+          <div className="space-y-3">
+            {/* Element Tree / Hierarchy (merged from Tree tab) */}
+            {selectedElement.hierarchy && (
+              <div className="pb-3 border-b border-devonz-elements-borderColor">
+                <ElementTreeNavigator
+                  hierarchy={selectedElement.hierarchy}
+                  onSelectElement={inspector.selectFromTree}
+                />
+              </div>
+            )}
+
+            {/* Box Model Editor */}
+            <BoxModelEditor boxModel={selectedElement.boxModel ?? null} onValueChange={handleStyleChange} />
+          </div>
         )}
 
         {activeTab === 'ai' && <AiQuickActions selectedElement={selectedElement} onAIAction={handleAIAction} />}
-
-        {activeTab === 'tree' && (
-          <ElementTreeNavigator
-            hierarchy={selectedElement.hierarchy ?? null}
-            onSelectElement={inspector.selectFromTree}
-          />
-        )}
-
-        {activeTab === 'colors' && (
-          <PageColorPalette
-            colors={selectedElement.colors ?? []}
-            onColorSelect={(color) => handleStyleChange('background-color', color)}
-          />
-        )}
-
-        {activeTab === 'layout' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-devonz-elements-textSecondary">
-              <span className="i-ph:layout w-4 h-4" aria-hidden="true" />
-              <span>Layout Inspector</span>
-            </div>
-            <p className="text-devonz-elements-textTertiary text-xs italic">
-              Flexbox and Grid visualiser coming in a future update.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Footer with action buttons */}
@@ -441,8 +436,8 @@ export const InspectorPanel = memo(({ inspector }: InspectorPanelProps) => {
           onClick={handleDeleteElement}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-colors"
         >
-          <div className="i-ph:trash w-3.5 h-3.5" aria-hidden="true" />
-          Delete Element
+          <div className="i-ph:chat-circle-dots w-3.5 h-3.5" aria-hidden="true" />
+          Ask AI to Remove
         </button>
       </div>
     </div>

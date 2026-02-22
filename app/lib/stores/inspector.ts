@@ -9,6 +9,7 @@ import type {
   InspectorTab,
 } from '~/lib/inspector/types';
 import { DEFAULT_INSPECTOR_CONFIG } from '~/lib/inspector/types';
+import type { UseInspectorReturn } from '~/lib/hooks/useInspector';
 
 const STORAGE_KEY = 'devonz-inspector-config';
 
@@ -70,6 +71,19 @@ export const inspectorConfigAtom =
   import.meta.hot?.data.inspectorConfigAtom ?? atom<InspectorConfig>({ ...DEFAULT_INSPECTOR_CONFIG });
 
 /* ------------------------------------------------------------------ */
+/*  Inspector API (set by Preview, consumed by BaseChat)               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Holds the full `UseInspectorReturn` produced by `useInspector()` in
+ * Preview.tsx so that other layout components (e.g. BaseChat) can render
+ * the InspectorPanel without needing the preview iframe ref directly.
+ *
+ * `null` when no Preview is mounted.
+ */
+export const inspectorApiAtom = import.meta.hot?.data.inspectorApiAtom ?? atom<UseInspectorReturn | null>(null);
+
+/* ------------------------------------------------------------------ */
 /*  HMR persistence                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -87,6 +101,7 @@ if (import.meta.hot) {
   import.meta.hot.data.accumulatedBulkChangesAtom = accumulatedBulkChangesAtom;
   import.meta.hot.data.bulkAffectedCountAtom = bulkAffectedCountAtom;
   import.meta.hot.data.inspectorConfigAtom = inspectorConfigAtom;
+  import.meta.hot.data.inspectorApiAtom = inspectorApiAtom;
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,5 +1,5 @@
 // ============================================================
-// Inspector Core Module — Phase 3.1
+// Inspector Core Module
 // Element selection, highlighting, mouse interaction, resize
 // handles, style editing, text editing, revert, bulk ops,
 // element counting, and deletion.
@@ -23,6 +23,9 @@ let resizeStartWidth = 0;
 let resizeStartHeight = 0;
 let resizeHandle = null;
 let bulkOriginalStyles = new Map();
+
+/** @type {number} rAF handle for debounced hover messages */
+let _hoverRafId = 0;
 
 // --- Relevant CSS properties (matches types.ts RELEVANT_STYLE_PROPS) ---
 const RELEVANT_STYLE_PROPS = [
@@ -96,8 +99,8 @@ function getElementClassName(element) {
   return element.className.toString();
 }
 
-function getRelevantStyles(element) {
-  const computedStyles = window.getComputedStyle(element);
+function getRelevantStyles(element, computedStyles) {
+  computedStyles = computedStyles || window.getComputedStyle(element);
   const styles = {};
 
   RELEVANT_STYLE_PROPS.forEach(function (prop) {
@@ -111,8 +114,8 @@ function getRelevantStyles(element) {
   return styles;
 }
 
-function getBoxModel(element) {
-  const computedStyles = window.getComputedStyle(element);
+function getBoxModel(element, computedStyles) {
+  computedStyles = computedStyles || window.getComputedStyle(element);
   const rect = element.getBoundingClientRect();
 
   function parseValue(value) {
@@ -220,11 +223,11 @@ function createElementDisplayText(element) {
   return displayText;
 }
 
-function extractElementColors(element) {
+function extractElementColors(element, computedStyles) {
   var colors = new Set();
   var colorProps = ['color', 'background-color', 'border-color', 'outline-color'];
 
-  var computedStyles = window.getComputedStyle(element);
+  computedStyles = computedStyles || window.getComputedStyle(element);
 
   colorProps.forEach(function (prop) {
     var value = computedStyles.getPropertyValue(prop);
@@ -410,14 +413,15 @@ function getElementHierarchy(element) {
 
 function createElementInfo(element) {
   var rect = element.getBoundingClientRect();
+  var computedStyles = window.getComputedStyle(element);
 
   return {
     tagName: element.tagName,
     className: getElementClassName(element),
     id: element.id || '',
     textContent: (element.textContent || '').slice(0, 100),
-    styles: getRelevantStyles(element),
-    boxModel: getBoxModel(element),
+    styles: getRelevantStyles(element, computedStyles),
+    boxModel: getBoxModel(element, computedStyles),
     rect: {
       x: rect.x,
       y: rect.y,
@@ -430,7 +434,7 @@ function createElementInfo(element) {
     displayText: createElementDisplayText(element),
     elementPath: getElementPath(element),
     hierarchy: getElementHierarchy(element),
-    colors: extractElementColors(element),
+    colors: extractElementColors(element, computedStyles),
   };
 }
 
@@ -487,6 +491,7 @@ function handleMouseMove(e) {
     return;
   }
 
+  // Update visual highlight immediately for responsiveness
   if (currentHighlight) {
     currentHighlight.classList.remove('inspector-highlight');
   }
@@ -494,7 +499,13 @@ function handleMouseMove(e) {
   target.classList.add('inspector-highlight');
   currentHighlight = target;
 
-  sendToParent('INSPECTOR_HOVER', { elementInfo: createElementInfo(target) });
+  // Debounce the expensive createElementInfo + postMessage to one per frame
+  cancelAnimationFrame(_hoverRafId);
+  _hoverRafId = requestAnimationFrame(function () {
+    if (currentHighlight === target) {
+      sendToParent('INSPECTOR_HOVER', { elementInfo: createElementInfo(target) });
+    }
+  });
 }
 
 function handleClick(e) {

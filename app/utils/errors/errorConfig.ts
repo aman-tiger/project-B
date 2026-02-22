@@ -24,6 +24,14 @@ export const SUPPRESSION_PATTERNS: Array<{
   /** Error categories this applies to */
   categories: ErrorCategory[];
 }> = [
+  // Inspector / DevTools internal errors - not user code issues
+  {
+    pattern:
+      /_devonz-inspector|_devonz-capture|_devonz-html2canvas|inspector-core|screenshot-capture|error-capture\.js/i,
+    reason: 'Internal inspector tooling errors should not trigger AutoFix',
+    categories: ['preview'],
+  },
+
   // Source map errors - not actionable by users
   {
     pattern: /source\s*map.*404|\.map\s+404|failed.*source\s*map/i,

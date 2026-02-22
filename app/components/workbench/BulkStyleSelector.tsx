@@ -1,10 +1,5 @@
 import { useState, useCallback, memo } from 'react';
-
-interface BulkTarget {
-  value: string;
-  label: string;
-  selector: string;
-}
+import type { BulkTarget } from '~/lib/inspector/types';
 
 interface BulkStyleSelectorProps {
   currentTagName: string;

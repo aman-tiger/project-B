@@ -1,14 +1,18 @@
 // ===========================================================================
-// screenshot-capture.js — Screenshot capture module (Phase 3.3)
+// screenshot-capture.js — Screenshot capture module
 // Runs INSIDE the preview iframe. Plain JS, no imports.
 // Concatenated into a single IIFE by the build script.
+//
+// html2canvas is loaded at runtime via <script> tag — tries a local bundle
+// served from /_devonz-html2canvas.min.js first, falls back to CDN.
 // ===========================================================================
 
 /**
- * CDN URL for html2canvas. Will be replaced with a bundled npm dependency
- * in Phase 5 — kept as a constant for easy swapping.
+ * Local path for html2canvas — written to the user's public/ by the server.
+ * Falls back to CDN if the local file fails to load.
  */
-const HTML2CANVAS_CDN_URL =
+const HTML2CANVAS_LOCAL_URL = '/_devonz-html2canvas.min.js';
+const HTML2CANVAS_CDN_FALLBACK =
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
 /** @type {boolean} Whether html2canvas has finished loading */
@@ -25,8 +29,9 @@ const _html2canvasCallbacks = [];
 // ---------------------------------------------------------------------------
 
 /**
- * Lazily loads html2canvas from the CDN. Queues callbacks while loading is
- * in progress so the script tag is only injected once.
+ * Lazily loads html2canvas, trying the local bundle first then falling back
+ * to CDN. Queues callbacks while loading is in progress so the script tag
+ * is only injected once.
  *
  * @param {function(html2canvas|null): void} callback — receives the
  *   html2canvas function on success, or `null` on failure.
@@ -45,30 +50,52 @@ function loadHtml2Canvas(callback) {
 
   _html2canvasLoading = true;
 
-  const script = document.createElement('script');
-  script.src = HTML2CANVAS_CDN_URL;
+  _tryLoadScript(HTML2CANVAS_LOCAL_URL, function onLocalLoaded(success) {
+    if (success) {
+      _html2canvasLoaded = true;
+      _html2canvasLoading = false;
+      _flushCallbacks(window.html2canvas);
+    } else {
+      // Fallback to CDN
+      _tryLoadScript(HTML2CANVAS_CDN_FALLBACK, function onCdnLoaded(cdnSuccess) {
+        _html2canvasLoading = false;
+
+        if (cdnSuccess) {
+          _html2canvasLoaded = true;
+          _flushCallbacks(window.html2canvas);
+        } else {
+          _flushCallbacks(null);
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Attempts to load a script from the given URL.
+ *
+ * @param {string} src — script URL
+ * @param {function(boolean): void} done — called with `true` on success, `false` on error
+ */
+function _tryLoadScript(src, done) {
+  var script = document.createElement('script');
+  script.src = src;
   script.async = true;
-
-  script.onload = function onHtml2CanvasLoaded() {
-    _html2canvasLoaded = true;
-    _html2canvasLoading = false;
-
-    while (_html2canvasCallbacks.length > 0) {
-      const cb = _html2canvasCallbacks.shift();
-      cb(window.html2canvas);
-    }
-  };
-
-  script.onerror = function onHtml2CanvasError() {
-    _html2canvasLoading = false;
-
-    while (_html2canvasCallbacks.length > 0) {
-      const cb = _html2canvasCallbacks.shift();
-      cb(null);
-    }
-  };
-
+  script.onload = function () { done(true); };
+  script.onerror = function () { done(false); };
   document.head.appendChild(script);
+}
+
+/**
+ * Flushes all queued html2canvas callbacks.
+ *
+ * @param {html2canvas|null} html2canvasFn
+ */
+function _flushCallbacks(html2canvasFn) {
+  while (_html2canvasCallbacks.length > 0) {
+    var cb = _html2canvasCallbacks.shift();
+    cb(html2canvasFn);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +131,14 @@ async function captureScreenshot(requestId, options) {
         logging: false,
         width: window.innerWidth,
         height: window.innerHeight,
+        ignoreElements: function (element) {
+          // Skip Vite's error overlay custom element — its constructor
+          // references `this.root` which is undefined during cloning,
+          // causing a TypeError crash in html2canvas.
+          var tag = element.tagName && element.tagName.toLowerCase();
+
+          return tag === 'vite-error-overlay';
+        },
       });
 
       const thumbCanvas = document.createElement('canvas');

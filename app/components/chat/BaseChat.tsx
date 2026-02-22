@@ -18,9 +18,11 @@ import ProgressCompilation from './ProgressCompilation';
 import type { ProgressAnnotation } from '~/types/context';
 import { expoUrlAtom } from '~/lib/stores/qrCode';
 import { workbenchStore } from '~/lib/stores/workbench';
+import { inspectorApiAtom, inspectorPanelVisibleAtom } from '~/lib/stores/inspector';
 import { useStore } from '@nanostores/react';
 import { StickToBottom, useStickToBottomContext } from '~/lib/hooks';
 import { ChatBox } from './ChatBox';
+import { InspectorPanel } from '~/components/workbench/InspectorPanel';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/inspector-types';
 import { ResizeHandle } from '~/components/ui/ResizeHandle';
@@ -156,6 +158,8 @@ export const BaseChat = React.memo(
       const expoUrl = useStore(expoUrlAtom);
       const showWorkbench = useStore(workbenchStore.showWorkbench);
       const workbenchWidth = useStore(workbenchStore.workbenchWidth);
+      const inspectorApi = useStore(inspectorApiAtom);
+      const inspectorVisible = useStore(inspectorPanelVisibleAtom);
       const [qrModalOpen, setQrModalOpen] = useState(false);
       const [isResizing, setIsResizing] = useState(false);
 
@@ -405,161 +409,168 @@ export const BaseChat = React.memo(
               <div
                 className={classNames(styles.Chat, 'flex flex-col flex-grow min-w-[300px] h-full', {
                   'select-none': isResizing,
-                  'overflow-hidden': chatStarted,
-                  'overflow-y-auto': !chatStarted,
+                  'overflow-hidden': chatStarted || (inspectorVisible && inspectorApi),
+                  'overflow-y-auto': !chatStarted && !(inspectorVisible && inspectorApi),
                 })}
               >
-                {!chatStarted && (
-                  <div id="intro" className="mt-[8vh] max-w-2xl mx-auto text-center px-4 lg:px-0 relative">
-                    {/* Liquid Metal 3D Text */}
-                    <div className="liquid-metal-container">
-                      <h1 className="liquid-metal-text" aria-label="Devonz">
-                        Devonz
-                      </h1>
-                    </div>
-
-                    {/* Subtitle below the 3D text */}
-                    <p className="text-base lg:text-lg text-[#8badd4] animate-fade-in animation-delay-200">
-                      Build anything with AI. Just describe what you want.
-                    </p>
-                  </div>
-                )}
-                <StickToBottom
-                  className={classNames('pt-6 px-2 sm:px-6 relative', {
-                    'h-full flex flex-col modern-scrollbar': chatStarted,
-                  })}
-                  resize="smooth"
-                  initial="smooth"
-                >
-                  <StickToBottom.Content className="flex flex-col gap-4 relative ">
-                    <ClientOnly>
-                      {() => {
-                        return chatStarted ? (
-                          <Suspense>
-                            <Messages
-                              key="messages-component"
-                              className="flex flex-col w-full flex-1 max-w-chat pb-4 mx-auto z-1"
-                              messages={messages}
-                              isStreaming={isStreaming}
-                              append={append}
-                              chatMode={chatMode}
-                              setChatMode={setChatMode}
-                              provider={provider}
-                              model={model}
-                              addToolResult={addToolResult}
-                            />
-                          </Suspense>
-                        ) : null;
-                      }}
-                    </ClientOnly>
-                    <ScrollToBottom />
-                  </StickToBottom.Content>
-                  <div
-                    className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
-                      'sticky bottom-2': chatStarted,
-                    })}
-                  >
-                    <div className="flex flex-col gap-2">
-                      <Suspense>
-                        {deployAlert && (
-                          <DeployChatAlert
-                            alert={deployAlert}
-                            clearAlert={() => clearDeployAlert?.()}
-                            postMessage={(message: string | undefined) => {
-                              sendMessage?.(undefined, message);
-                              clearSupabaseAlert?.();
-                            }}
-                          />
-                        )}
-                        {supabaseAlert && (
-                          <SupabaseChatAlert
-                            alert={supabaseAlert}
-                            clearAlert={() => clearSupabaseAlert?.()}
-                            postMessage={(message) => {
-                              sendMessage?.(undefined, message);
-                              clearSupabaseAlert?.();
-                            }}
-                          />
-                        )}
-                        {actionAlert && (
-                          <ChatAlert
-                            alert={actionAlert}
-                            clearAlert={() => clearAlert?.()}
-                            postMessage={(message) => {
-                              sendMessage?.(undefined, message);
-                              clearAlert?.();
-                            }}
-                          />
-                        )}
-                        {llmErrorAlert && (
-                          <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
-                        )}
-                      </Suspense>
-                    </div>
-                    {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
-
-                    {/* Action Buttons Row - Above ChatBox */}
+                {/* Inspector Panel replaces chat content when active */}
+                {inspectorVisible && inspectorApi ? (
+                  <InspectorPanel inspector={inspectorApi} />
+                ) : (
+                  <>
                     {!chatStarted && (
-                      <div className="flex justify-center gap-3 mb-4 max-w-chat mx-auto w-full">
-                        <LeftActionPanel importChat={importChat} />
+                      <div id="intro" className="mt-[8vh] max-w-2xl mx-auto text-center px-4 lg:px-0 relative">
+                        {/* Liquid Metal 3D Text */}
+                        <div className="liquid-metal-container">
+                          <h1 className="liquid-metal-text" aria-label="Devonz">
+                            Devonz
+                          </h1>
+                        </div>
+
+                        {/* Subtitle below the 3D text */}
+                        <p className="text-base lg:text-lg text-[#8badd4] animate-fade-in animation-delay-200">
+                          Build anything with AI. Just describe what you want.
+                        </p>
                       </div>
                     )}
+                    <StickToBottom
+                      className={classNames('pt-6 px-2 sm:px-6 relative', {
+                        'h-full flex flex-col modern-scrollbar': chatStarted,
+                      })}
+                      resize="smooth"
+                      initial="smooth"
+                    >
+                      <StickToBottom.Content className="flex flex-col gap-4 relative ">
+                        <ClientOnly>
+                          {() => {
+                            return chatStarted ? (
+                              <Suspense>
+                                <Messages
+                                  key="messages-component"
+                                  className="flex flex-col w-full flex-1 max-w-chat pb-4 mx-auto z-1"
+                                  messages={messages}
+                                  isStreaming={isStreaming}
+                                  append={append}
+                                  chatMode={chatMode}
+                                  setChatMode={setChatMode}
+                                  provider={provider}
+                                  model={model}
+                                  addToolResult={addToolResult}
+                                />
+                              </Suspense>
+                            ) : null;
+                          }}
+                        </ClientOnly>
+                        <ScrollToBottom />
+                      </StickToBottom.Content>
+                      <div
+                        className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
+                          'sticky bottom-2': chatStarted,
+                        })}
+                      >
+                        <div className="flex flex-col gap-2">
+                          <Suspense>
+                            {deployAlert && (
+                              <DeployChatAlert
+                                alert={deployAlert}
+                                clearAlert={() => clearDeployAlert?.()}
+                                postMessage={(message: string | undefined) => {
+                                  sendMessage?.(undefined, message);
+                                  clearSupabaseAlert?.();
+                                }}
+                              />
+                            )}
+                            {supabaseAlert && (
+                              <SupabaseChatAlert
+                                alert={supabaseAlert}
+                                clearAlert={() => clearSupabaseAlert?.()}
+                                postMessage={(message) => {
+                                  sendMessage?.(undefined, message);
+                                  clearSupabaseAlert?.();
+                                }}
+                              />
+                            )}
+                            {actionAlert && (
+                              <ChatAlert
+                                alert={actionAlert}
+                                clearAlert={() => clearAlert?.()}
+                                postMessage={(message) => {
+                                  sendMessage?.(undefined, message);
+                                  clearAlert?.();
+                                }}
+                              />
+                            )}
+                            {llmErrorAlert && (
+                              <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
+                            )}
+                          </Suspense>
+                        </div>
+                        {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
 
-                    {/* 3-Column Layout Wrapper */}
-                    <div className="flex items-center justify-center gap-4 lg:gap-6 w-full">
-                      {/* Center Column - ChatBox */}
-                      <div className="w-full max-w-chat">
-                        <ChatBox
-                          isModelSettingsCollapsed={isModelSettingsCollapsed}
-                          setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
-                          provider={provider}
-                          setProvider={setProvider}
-                          providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
-                          model={model}
-                          setModel={setModel}
-                          modelList={modelList}
-                          apiKeys={apiKeys}
-                          isModelLoading={isModelLoading}
-                          onApiKeysChange={onApiKeysChange}
-                          uploadedFiles={uploadedFiles}
-                          setUploadedFiles={setUploadedFiles}
-                          imageDataList={imageDataList}
-                          setImageDataList={setImageDataList}
-                          textareaRef={textareaRef}
-                          input={input}
-                          handleInputChange={handleInputChange}
-                          handlePaste={handlePaste}
-                          TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
-                          TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
-                          isStreaming={isStreaming}
-                          handleStop={handleStop}
-                          handleSendMessage={handleSendMessage}
-                          enhancingPrompt={enhancingPrompt}
-                          enhancePrompt={enhancePrompt}
-                          isListening={isListening}
-                          startListening={startListening}
-                          stopListening={stopListening}
-                          chatStarted={chatStarted}
-                          exportChat={exportChat}
-                          qrModalOpen={qrModalOpen}
-                          setQrModalOpen={setQrModalOpen}
-                          handleFileUpload={handleFileUpload}
-                          chatMode={chatMode}
-                          setChatMode={setChatMode}
-                          planMode={planMode}
-                          setPlanMode={setPlanMode}
-                          designScheme={designScheme}
-                          setDesignScheme={setDesignScheme}
-                          selectedElement={selectedElement}
-                          setSelectedElement={setSelectedElement}
-                          onWebSearchResult={onWebSearchResult}
-                        />
+                        {/* Action Buttons Row - Above ChatBox */}
+                        {!chatStarted && (
+                          <div className="flex justify-center gap-3 mb-4 max-w-chat mx-auto w-full">
+                            <LeftActionPanel importChat={importChat} />
+                          </div>
+                        )}
+
+                        {/* 3-Column Layout Wrapper */}
+                        <div className="flex items-center justify-center gap-4 lg:gap-6 w-full">
+                          {/* Center Column - ChatBox */}
+                          <div className="w-full max-w-chat">
+                            <ChatBox
+                              isModelSettingsCollapsed={isModelSettingsCollapsed}
+                              setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
+                              provider={provider}
+                              setProvider={setProvider}
+                              providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+                              model={model}
+                              setModel={setModel}
+                              modelList={modelList}
+                              apiKeys={apiKeys}
+                              isModelLoading={isModelLoading}
+                              onApiKeysChange={onApiKeysChange}
+                              uploadedFiles={uploadedFiles}
+                              setUploadedFiles={setUploadedFiles}
+                              imageDataList={imageDataList}
+                              setImageDataList={setImageDataList}
+                              textareaRef={textareaRef}
+                              input={input}
+                              handleInputChange={handleInputChange}
+                              handlePaste={handlePaste}
+                              TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
+                              TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
+                              isStreaming={isStreaming}
+                              handleStop={handleStop}
+                              handleSendMessage={handleSendMessage}
+                              enhancingPrompt={enhancingPrompt}
+                              enhancePrompt={enhancePrompt}
+                              isListening={isListening}
+                              startListening={startListening}
+                              stopListening={stopListening}
+                              chatStarted={chatStarted}
+                              exportChat={exportChat}
+                              qrModalOpen={qrModalOpen}
+                              setQrModalOpen={setQrModalOpen}
+                              handleFileUpload={handleFileUpload}
+                              chatMode={chatMode}
+                              setChatMode={setChatMode}
+                              planMode={planMode}
+                              setPlanMode={setPlanMode}
+                              designScheme={designScheme}
+                              setDesignScheme={setDesignScheme}
+                              selectedElement={selectedElement}
+                              setSelectedElement={setSelectedElement}
+                              onWebSearchResult={onWebSearchResult}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </StickToBottom>
-                {/* Template Gallery - Below Example Prompts */}
-                {!chatStarted && <TemplateSection />}
+                    </StickToBottom>
+                    {/* Template Gallery - Below Example Prompts */}
+                    {!chatStarted && <TemplateSection />}
+                  </>
+                )}
               </div>
             )}
 

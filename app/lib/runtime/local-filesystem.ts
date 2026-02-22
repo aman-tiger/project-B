@@ -31,7 +31,7 @@ const logger = createScopedLogger('LocalFileSystem');
  */
 
 /** The capture JS as a raw string (reused for both inline and external). */
-const CAPTURE_JS = `(function(){var L=false,G=false,C=[];function lh(cb){if(L&&window.html2canvas){cb(window.html2canvas);return}C.push(cb);if(G)return;G=true;var s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.async=true;s.onload=function(){L=true;G=false;while(C.length)C.shift()(window.html2canvas)};s.onerror=function(){G=false;while(C.length)C.shift()(null)};document.head.appendChild(s)}window.addEventListener("message",function(e){if(e.data&&e.data.type==="CAPTURE_SCREENSHOT_REQUEST"){var rid=e.data.requestId,o=e.data.options||{},mw=o.width||960,mh=o.height||600;lh(function(h2c){if(!h2c){window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:"",isPlaceholder:true},"*");return}var fh=Math.min(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,window.innerHeight),4000);h2c(document.body,{useCORS:true,allowTaint:true,backgroundColor:"#0d1117",scale:1,logging:false,width:window.innerWidth,height:fh,windowHeight:fh}).then(function(cv){var r=Math.min(mw/cv.width,mh/cv.height,1),tw=Math.round(cv.width*r),th=Math.round(cv.height*r),tc=document.createElement("canvas");tc.width=tw;tc.height=th;var cx=tc.getContext("2d");if(cx){cx.drawImage(cv,0,0,cv.width,cv.height,0,0,tw,th);window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:tc.toDataURL("image/webp",0.85),isPlaceholder:false},"*")}}).catch(function(){window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:"",isPlaceholder:true},"*")})})}})})();`;
+const CAPTURE_JS = `(function(){var L=false,G=false,C=[];function lh(cb){if(L&&window.html2canvas){cb(window.html2canvas);return}C.push(cb);if(G)return;G=true;var s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.async=true;s.onload=function(){L=true;G=false;while(C.length)C.shift()(window.html2canvas)};s.onerror=function(){G=false;while(C.length)C.shift()(null)};document.head.appendChild(s)}window.addEventListener("message",function(e){if(e.data&&e.data.type==="CAPTURE_SCREENSHOT_REQUEST"){var rid=e.data.requestId,o=e.data.options||{},mw=o.width||960,mh=o.height||600;lh(function(h2c){if(!h2c){window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:"",isPlaceholder:true},"*");return}var fh=Math.min(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,window.innerHeight),4000);h2c(document.body,{useCORS:true,allowTaint:true,backgroundColor:"#0d1117",scale:1,logging:false,width:window.innerWidth,height:fh,windowHeight:fh,ignoreElements:function(el){return el.tagName&&el.tagName.toLowerCase()==="vite-error-overlay"}}).then(function(cv){var r=Math.min(mw/cv.width,mh/cv.height,1),tw=Math.round(cv.width*r),th=Math.round(cv.height*r),tc=document.createElement("canvas");tc.width=tw;tc.height=th;var cx=tc.getContext("2d");if(cx){cx.drawImage(cv,0,0,cv.width,cv.height,0,0,tw,th);window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:tc.toDataURL("image/webp",0.85),isPlaceholder:false},"*")}}).catch(function(){window.parent.postMessage({type:"PREVIEW_SCREENSHOT_RESPONSE",requestId:rid,dataUrl:"",isPlaceholder:true},"*")})})}})})();`;
 
 /* ── Path 1: index.html inline injection ────────────────────────────────── */
 
@@ -82,10 +82,8 @@ function injectCaptureScript(html: string): string {
 
 /**
  * Build the inspector script from modular source files in `public/inspector/`.
- * Falls back to the legacy monolithic `public/inspector-script.js` if the
- * modular files are not available.
  */
-import { getInspectorScript } from '~/lib/inspector/build-inspector-script';
+import { getInspectorScript, getHtml2CanvasScript } from '~/lib/inspector/build-inspector-script';
 
 const INSPECTOR_JS = getInspectorScript();
 
@@ -113,6 +111,9 @@ const LAYOUT_CAPTURE_TAG = `<script src="/${CAPTURE_SCRIPT_FILENAME}" data-devon
 
 /** Regex to strip the injected layout capture tag. */
 const LAYOUT_CAPTURE_RE = /\s*<script\s[^>]*data-devonz-capture[^>]*><\/script>/g;
+
+/** Name of the html2canvas bundle written to the user's public/. */
+const HTML2CANVAS_FILENAME = '_devonz-html2canvas.min.js';
 
 /**
  * Check if a path + content represents a root HTML layout file.
@@ -162,6 +163,7 @@ export class LocalFileSystem implements RuntimeFileSystem {
   readonly #root: string;
   #captureScriptWritten = false;
   #inspectorScriptWritten = false;
+  #html2canvasWritten = false;
 
   constructor(projectRoot: string) {
     this.#root = nodePath.resolve(projectRoot);
@@ -203,6 +205,31 @@ export class LocalFileSystem implements RuntimeFileSystem {
     this.#inspectorScriptWritten = true;
 
     logger.debug('Wrote inspector script to public/_devonz-inspector.js');
+  }
+
+  /**
+   * Write the html2canvas bundle to public/_devonz-html2canvas.min.js.
+   * Skips if already written this session or if the bundle is unavailable.
+   */
+  async #ensureHtml2CanvasFile(): Promise<void> {
+    if (this.#html2canvasWritten) {
+      return;
+    }
+
+    const html2canvasContent = getHtml2CanvasScript();
+
+    if (!html2canvasContent) {
+      return;
+    }
+
+    const publicDir = nodePath.join(this.#root, 'public');
+    await fs.mkdir(publicDir, { recursive: true });
+
+    const html2canvasFile = nodePath.join(publicDir, HTML2CANVAS_FILENAME);
+    await fs.writeFile(html2canvasFile, html2canvasContent, 'utf-8');
+    this.#html2canvasWritten = true;
+
+    logger.debug('Wrote html2canvas bundle to public/_devonz-html2canvas.min.js');
   }
 
   /** Resolve a relative path to an absolute path within the project root. */
@@ -266,11 +293,13 @@ export class LocalFileSystem implements RuntimeFileSystem {
         // Path 1: inject inline capture script + external inspector into static HTML
         finalContent = injectCaptureScript(content);
         await this.#ensureInspectorScriptFile();
+        await this.#ensureHtml2CanvasFile();
       } else if (isRootLayout(path, content)) {
         // Path 2: inject external script references into framework root layouts
         finalContent = injectLayoutCaptureTag(content);
         await this.#ensureCaptureScriptFile();
         await this.#ensureInspectorScriptFile();
+        await this.#ensureHtml2CanvasFile();
       }
 
       await fs.writeFile(resolved, finalContent, 'utf-8');

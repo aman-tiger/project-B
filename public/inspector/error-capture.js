@@ -69,16 +69,41 @@ function isAutoFixableError(message) {
 }
 
 /**
+ * Checks if an error originated from inspector/devtools scripts.
+ * These errors should NOT be forwarded to AutoFix since they are
+ * internal to the inspector tooling, not user code errors.
+ * @param {string} message - Error message text.
+ * @param {string} [stack] - Stack trace, if available.
+ * @returns {boolean} True if the error is from inspector internals.
+ */
+function isInspectorInternalError(message, stack) {
+  var combined = (message || '') + '\n' + (stack || '');
+  var inspectorPatterns = [
+    /_devonz-inspector/,
+    /_devonz-capture/,
+    /_devonz-html2canvas/,
+    /screenshot-capture/,
+    /error-capture\.js/,
+    /inspector-core/,
+    /vite-error-overlay/,
+    /Cannot read properties of undefined \(reading 'frame'\)/,
+  ];
+  return inspectorPatterns.some(function(p) { return p.test(combined); });
+}
+
+/**
  * Forwards a runtime error to the parent frame via postMessage.
  * Only auto-fixable, non-duplicate errors are forwarded.
+ * Inspector-internal errors are silently ignored.
  * @param {string} errorType - Category (e.g. 'console.error', 'error', 'unhandledrejection').
  * @param {string} message  - Human-readable error message.
  * @param {string} [stack]  - Stack trace, if available.
  */
 function forwardErrorToParent(errorType, message, stack) {
-  const fullMessage = String(message);
+  var fullMessage = String(message);
   if (!shouldForwardError(fullMessage)) return;
   if (!isAutoFixableError(fullMessage)) return;
+  if (isInspectorInternalError(fullMessage, stack)) return;
   try {
     window.parent.postMessage({
       type: 'PREVIEW_CONSOLE_ERROR',

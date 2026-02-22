@@ -1,15 +1,7 @@
 import { useState, useCallback, memo } from 'react';
+import type { BoxModelData } from '~/lib/inspector/types';
 
-export interface BoxModelData {
-  margin: { top: number; right: number; bottom: number; left: number };
-  padding: { top: number; right: number; bottom: number; left: number };
-  border: { top: number; right: number; bottom: number; left: number };
-  borderColor: string;
-  borderStyle: string;
-  width: number;
-  height: number;
-  boxSizing: string;
-}
+export type { BoxModelData };
 
 interface BoxModelEditorProps {
   boxModel: BoxModelData | null;

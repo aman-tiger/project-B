@@ -86,7 +86,7 @@ export interface ElementInfo {
 export type InspectorMode = 'off' | 'inspect' | 'select';
 
 /** Available detail-panel tabs. */
-export type InspectorTab = 'styles' | 'text' | 'box' | 'ai' | 'tree' | 'colors' | 'layout';
+export type InspectorTab = 'styles' | 'box' | 'ai';
 
 /* Edits & history */
 
@@ -163,7 +163,10 @@ export const DEFAULT_INSPECTOR_CONFIG: Readonly<InspectorConfig> = {
 
 /* Style property allow-list */
 
-/** CSS properties the inspector displays and allows editing. */
+/**
+ * CSS properties the inspector displays and allows editing.
+ *  SYNC: keep in sync with public/inspector/inspector-core.js RELEVANT_STYLE_PROPS
+ */
 export const RELEVANT_STYLE_PROPS = [
   'color',
   'background-color',

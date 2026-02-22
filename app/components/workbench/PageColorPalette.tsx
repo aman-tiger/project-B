@@ -1,5 +1,6 @@
 import { memo, useState, useCallback } from 'react';
 import { createScopedLogger } from '~/utils/logger';
+import { toHex, isLightColor } from '~/utils/color';
 
 const logger = createScopedLogger('ColorPalette');
 
@@ -7,38 +8,6 @@ interface PageColorPaletteProps {
   colors: string[];
   onColorSelect?: (color: string) => void;
 }
-
-// Function to convert color to hex format
-const toHex = (color: string): string => {
-  // If already hex, return as is
-  if (color.startsWith('#')) {
-    return color.length === 4 ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}` : color;
-  }
-
-  // Handle rgb/rgba
-  const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-
-  if (rgbMatch) {
-    const r = parseInt(rgbMatch[1], 10).toString(16).padStart(2, '0');
-    const g = parseInt(rgbMatch[2], 10).toString(16).padStart(2, '0');
-    const b = parseInt(rgbMatch[3], 10).toString(16).padStart(2, '0');
-
-    return `#${r}${g}${b}`;
-  }
-
-  return color;
-};
-
-// Check if color is light or dark
-const isLightColor = (color: string): boolean => {
-  const hex = toHex(color).replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  return luminance > 0.5;
-};
 
 export const PageColorPalette = memo(({ colors, onColorSelect }: PageColorPaletteProps) => {
   const [copiedColor, setCopiedColor] = useState<string | null>(null);

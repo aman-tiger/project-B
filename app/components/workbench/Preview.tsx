@@ -4,10 +4,10 @@ import { IconButton } from '~/components/ui/IconButton';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { stagingStore } from '~/lib/stores/staging';
 import { setPendingChatMessage } from '~/lib/stores/chat';
+import { inspectorApiAtom } from '~/lib/stores/inspector';
 import { PortDropdown } from './PortDropdown';
 import { expoUrlAtom } from '~/lib/stores/qrCode';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
-import { InspectorPanel } from './InspectorPanel';
 import { useInspector } from '~/lib/hooks/useInspector';
 import type { ElementInfo } from '~/lib/inspector/types';
 import { createScopedLogger } from '~/utils/logger';
@@ -202,6 +202,15 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
       setPendingChatMessage(message);
     },
     onSelectedElementChange: setSelectedElement ?? undefined,
+  });
+
+  /* ── Publish inspector API globally so BaseChat can render the panel ── */
+  useEffect(() => {
+    inspectorApiAtom.set(inspector);
+
+    return () => {
+      inspectorApiAtom.set(null);
+    };
   });
 
   const resizingState = useRef({
@@ -882,9 +891,6 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
 
   return (
     <div ref={containerRef} className={`w-full h-full flex flex-col relative`}>
-      {/* Inspector Panel */}
-      <InspectorPanel inspector={inspector} />
-
       {isPortDropdownOpen && (
         <div className="z-iframe-overlay w-full h-full absolute" onClick={() => setIsPortDropdownOpen(false)} />
       )}
