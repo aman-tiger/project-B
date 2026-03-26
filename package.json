@@ -51,6 +51,7 @@
     "@ai-sdk/openai": "1.1.2",
     "@ai-sdk/react": "^1.2.12",
     "@ai-sdk/ui-utils": "^1.2.11",
+    "terser": "^5.31.0",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/lang-cpp": "^6.0.2",
