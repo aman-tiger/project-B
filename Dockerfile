@@ -21,6 +21,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # ── Stage 3: build ────────────────────────────────────────────
 # Build the React Router application
 FROM deps AS build
+# Increase Node.js heap size to prevent OOM during the Vite/Terser build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 COPY . .
 
 # Git info for pre-start.cjs (falls back to 'no-git-info' in Docker)
