@@ -28,24 +28,51 @@ export default defineConfig((config) => {
       rollupOptions: {
         external: ['undici', 'util/types', 'node:util/types'],
         output: {
-          manualChunks: {
-            'vendor-core': ['react', 'react-dom', 'react-router', 'react/jsx-runtime'],
-            'vendor-ui': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-tooltip',
-              'framer-motion',
-              'class-variance-authority',
-            ],
-            'vendor-editor': [
-              '@codemirror/view',
-              '@codemirror/state',
-              '@codemirror/language',
-              '@uiw/codemirror-theme-vscode',
-              '@lezer/highlight',
-            ],
-            'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai', '@ai-sdk/anthropic'],
-            'vendor-utils': ['date-fns', 'diff', 'dompurify', 'shiki', 'nanostores'],
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (
+                id.includes('/node_modules/react/') ||
+                id.includes('/node_modules/react-dom/') ||
+                id.includes('/node_modules/react-router/')
+              ) {
+                return 'vendor-core';
+              }
+              if (
+                id.includes('/@radix-ui/react-dialog/') ||
+                id.includes('/@radix-ui/react-dropdown-menu/') ||
+                id.includes('/@radix-ui/react-tooltip/') ||
+                id.includes('/node_modules/framer-motion/') ||
+                id.includes('/node_modules/class-variance-authority/')
+              ) {
+                return 'vendor-ui';
+              }
+              if (
+                id.includes('/@codemirror/view/') ||
+                id.includes('/@codemirror/state/') ||
+                id.includes('/@codemirror/language/') ||
+                id.includes('/@uiw/codemirror-theme-vscode/') ||
+                id.includes('/@lezer/highlight/')
+              ) {
+                return 'vendor-editor';
+              }
+              if (
+                id.includes('/node_modules/ai/') ||
+                id.includes('/@ai-sdk/react/') ||
+                id.includes('/@ai-sdk/openai/') ||
+                id.includes('/@ai-sdk/anthropic/')
+              ) {
+                return 'vendor-ai';
+              }
+              if (
+                id.includes('/node_modules/date-fns/') ||
+                id.includes('/node_modules/diff/') ||
+                id.includes('/node_modules/dompurify/') ||
+                id.includes('/node_modules/shiki/') ||
+                id.includes('/node_modules/nanostores/')
+              ) {
+                return 'vendor-utils';
+              }
+            }
           },
         },
       },
