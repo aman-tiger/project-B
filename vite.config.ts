@@ -28,25 +28,29 @@ export default defineConfig((config) => {
       rollupOptions: {
         external: ['undici', 'util/types', 'node:util/types'],
         output: {
-          manualChunks: {
-            'vendor-core': ['react', 'react-dom', 'react-router', 'react/jsx-runtime'],
-            'vendor-ui': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-tooltip',
-              'framer-motion',
-              'class-variance-authority',
-            ],
-            'vendor-editor': [
-              '@codemirror/view',
-              '@codemirror/state',
-              '@codemirror/language',
-              '@uiw/codemirror-theme-vscode',
-              '@lezer/highlight',
-            ],
-            'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai', '@ai-sdk/anthropic'],
-            'vendor-utils': ['date-fns', 'diff', 'dompurify', 'shiki', 'nanostores'],
-          },
+          ...(config.isSsrBuild
+            ? {}
+            : {
+                manualChunks: {
+                  'vendor-core': ['react', 'react-dom', 'react-router', 'react/jsx-runtime'],
+                  'vendor-ui': [
+                    '@radix-ui/react-dialog',
+                    '@radix-ui/react-dropdown-menu',
+                    '@radix-ui/react-tooltip',
+                    'framer-motion',
+                    'class-variance-authority',
+                  ],
+                  'vendor-editor': [
+                    '@codemirror/view',
+                    '@codemirror/state',
+                    '@codemirror/language',
+                    '@uiw/codemirror-theme-vscode',
+                    '@lezer/highlight',
+                  ],
+                  'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai', '@ai-sdk/anthropic'],
+                  'vendor-utils': ['date-fns', 'diff', 'dompurify', 'shiki', 'nanostores'],
+                },
+              }),
         },
       },
       minify: 'terser',
