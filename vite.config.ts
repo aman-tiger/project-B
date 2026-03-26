@@ -19,23 +19,17 @@ export default defineConfig((config) => {
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-      // ✅ FIX: Добавляем global для браузерной совместимости
       global: 'globalThis',
     },
     build: {
       target: 'esnext',
-      // ✅ FIX: Отключаем sourcemaps в production — экономит память и убирает предупреждения
       sourcemap: isProduction ? false : true,
-      // ✅ FIX: Увеличиваем лимит чанков чтобы не было предупреждений
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
         external: ['undici', 'util/types', 'node:util/types'],
         output: {
-          // ✅ FIX: Ручное разделение чанков — снижает пиковое потребление памяти
           manualChunks: {
-            // React и основные библиотеки
             'vendor-core': ['react', 'react-dom', 'react-router', 'react/jsx-runtime'],
-            // UI компоненты
             'vendor-ui': [
               '@radix-ui/react-dialog',
               '@radix-ui/react-dropdown-menu',
@@ -43,7 +37,6 @@ export default defineConfig((config) => {
               'framer-motion',
               'class-variance-authority',
             ],
-            // Редактор кода
             'vendor-editor': [
               '@codemirror/view',
               '@codemirror/state',
@@ -51,14 +44,11 @@ export default defineConfig((config) => {
               '@uiw/codemirror-theme-vscode',
               '@lezer/highlight',
             ],
-            // AI SDK
             'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai', '@ai-sdk/anthropic'],
-            // Утилиты
             'vendor-utils': ['date-fns', 'diff', 'dompurify', 'shiki', 'nanostores'],
           },
         },
       },
-      // ✅ FIX: Оптимизация для снижения потребления памяти
       minify: 'terser',
       terserOptions: {
         compress: {
@@ -80,7 +70,6 @@ export default defineConfig((config) => {
       alias: {
         'util/types': 'rollup-plugin-node-polyfills/polyfills/empty',
         'node:util/types': 'rollup-plugin-node-polyfills/polyfills/empty',
-        // ✅ FIX: Алиас для istextorbinary — заменяем проблемный импорт path.basename
         'istextorbinary/edition-browsers/index.js': 'istextorbinary/edition-node/index.js',
       },
     },
@@ -99,16 +88,15 @@ export default defineConfig((config) => {
       ],
     },
     plugins: [
-      // ✅ FIX: Добавляем 'path' в include и настраиваем exports для basename
       nodePolyfills({
-        include: ['buffer', 'process', 'util', 'path'], // ✅ Добавили path
+        include: ['buffer', 'process', 'util', 'path'],
         globals: {
           Buffer: true,
           process: true,
           global: true,
         },
         protocolImports: true,
-        exclude: ['child_process', 'fs', 'stream'], // ✅ Убрали path из exclude
+        exclude: ['child_process', 'fs', 'stream'],
       }),
       {
         name: 'buffer-polyfill',
@@ -122,12 +110,10 @@ export default defineConfig((config) => {
           return null;
         },
       },
-      // ✅ FIX: Плагин для исправления istextorbinary basename
       {
         name: 'fix-istextorbinary',
         transform(code: string, id: string) {
           if (id.includes('istextorbinary') && id.includes('edition-browsers')) {
-            // Заменяем проблемный импорт basename на безопасный аналог
             return {
               code: code.replace(
                 /import\s*\{\s*basename\s*\}\s*from\s*['"]path['"]/g,
@@ -207,7 +193,7 @@ export default defineConfig((config) => {
         'jspdf',
         'jszip',
         'ignore',
-        'istextorbinary', // ✅ Оставляем для pre-bundle
+        'istextorbinary',
         'js-cookie',
         'nanostores',
         'path-browserify',
