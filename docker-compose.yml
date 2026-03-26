@@ -1,95 +1,71 @@
 # ─────────────────────────────────────────────────────────────
 # Devonz (devonz.diy) — Docker Compose for Dokploy
-# Production-ready configuration
-#
-# Usage in Dokploy:
-#   Source: GitHub (your fork)
-#   Branch: main
-#   Build: Enabled (--build flag auto-applied by Dokploy)
+# Production configuration — GitHub source + build
 # ─────────────────────────────────────────────────────────────
 
 services:
-  # ── Production Service ─────────────────────────────────────
   devonz:
     # ✅ ТОЛЬКО build: для Dokploy + GitHub source
-    # ❌ image: УДАЛЕН — конфликтует со сборкой из репо
+    # ❌ image: УДАЛЕН — конфликтует со сборкой из репозитория
     build:
       context: .
       dockerfile: Dockerfile
-      # ✅ Кэширование слоев для ускорения повторных сборок
       cache_from:
         - ghcr.io/zebbern/devonz:latest
     container_name: devonz
     restart: unless-stopped
-    
-    # ✅ Порт: переменная с фолбэком на 5173
     ports:
       - "${PORT:-5173}:5173"
     
-    # ✅ Environment variables — передаются через Dokploy UI
-    # ❌ env_file: УДАЛЕН — не работает с Dokploy GitHub source
+    # ✅ Переменные окружения — задаются через Dokploy UI
     environment:
       - NODE_ENV=production
       - RUNNING_IN_DOCKER=true
-      # ✅ Память для Node.js: 4GB для сборки + runtime
       - NODE_OPTIONS=--max-old-space-size=4096
-      # ✅ API ключи — добавляй в Dokploy → Environment
       - GROQ_API_KEY=${GROQ_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      # ✅ База данных (SQLite по умолчанию)
       - DEVONZ_DB_PATH=${DEVONZ_DB_PATH:-file:./data/devonz.db}
-      # ✅ Sentry (опционально)
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
     
-    # ✅ Volumes: Docker socket для управления контейнерами из приложения
     volumes:
-      # Docker socket — read-only для безопасности
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # ✅ Persistent data для SQLite базы (опционально, если не в build)
-      # - devonz-data:/app/data
     
-    # ✅ Labels для Watchtower (авто-обновления)
     labels:
       - "com.centurylinklabs.watchtower.scope=devonz"
       - "com.centurylinklabs.watchtower.enable=true"
-      # ✅ Dokploy metadata (опционально)
       - "dokploy.managed=true"
     
-    # ✅ Healthcheck для мониторинга состояния
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5173/api/health').then(r=>{if(!r.ok)throw 1})"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 45s  # ✅ Увеличено для медленных сборок
+      start_period: 45s
     
-    # ✅ Resource limits (опционально, для стабильности)
     deploy:
       resources:
         limits:
-          memory: 6G  # ✅ Лимит памяти контейнера
-          cpus: '2'   # ✅ Лимит CPU
+          memory: 6G
+          cpus: '2'
 
-  # ── Development Service (не используется в production) ─────
-  # ✅ Запускается только с профилем: docker compose --profile dev up
   devonz-dev:
     build:
       context: .
       dockerfile: Dockerfile
-      target: deps  # ✅ Только зависимости, без билда
+      target: deps
     container_name: devonz-dev
-    profiles: ["dev"]  # ✅ Только для локальной разработки
+    profiles: ["dev"]
     ports:
       - "${PORT:-5173}:5173"
     environment:
       - NODE_ENV=development
       - RUNNING_IN_DOCKER=true
-      - CHOKIDAR_USEPOLLING=true  # ✅ Hot reload в Docker
+      - CHOKIDAR_USEPOLLING=true
     volumes:
-      - .:/app:cached  # ✅ Bind mount для hot reload
-      - /app/node_modules  # ✅ Изоляция node_modules
+      - .:/app:cached
+      - /app/node_modules
     command: pnpm dev --host 0.0.0.0
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5173/api/health').then(r=>{if(!r.ok)throw 1})"]
@@ -98,40 +74,29 @@ services:
       retries: 3
       start_period: 60s
 
-  # ── Auto-Update Service (опционально) ──────────────────────
-  # ✅ Запускается только с профилем: docker compose --profile auto-update up -d
   watchtower:
     image: containrrr/watchtower:latest
     container_name: devonz-watchtower
-    profiles: ["auto-update"]  # ✅ Не запускается по умолчанию
+    profiles: ["auto-update"]
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - WATCHTOWER_CLEANUP=true  # ✅ Удалять старые образы
-      - WATCHTOWER_POLL_INTERVAL=300  # ✅ Проверка каждые 5 минут
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_INCLUDE_STOPPED=false
-      - WATCHTOWER_LABEL_ENABLE=true  # ✅ Обновлять только с нужным label
-      - WATCHTOWER_ROLLING_RESTART=true  # ✅ Плавный рестарт без даунтайма
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_ROLLING_RESTART=true
     command: --label-enable
     labels:
       - "com.centurylinklabs.watchtower.scope=devonz"
-    # ✅ Ограничения ресурсов для watchtower
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: '0.5'
 
-# ── Volumes (если нужно persistent storage для SQLite) ───────
-# volumes:
-#   devonz-data:
-#     driver: local
-#     name: devonz-data
-
-# ── Networks (для Dokploy) ───────────────────────────────────
 networks:
-  # ✅ Dokploy использует внешнюю сеть — не создаём новую
   default:
     external: true
-    name: dokploy-network  # ✅ Стандартное имя сети Dokploy
+    name: dokploy-network
