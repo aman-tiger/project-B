@@ -16,7 +16,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
 # ── Stage 3: build ────────────────────────────────────────────
 # Build the React Router application
