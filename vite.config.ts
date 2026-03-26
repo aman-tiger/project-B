@@ -9,25 +9,62 @@ import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig((config) => {
+  const isProduction = config.mode === 'production';
+  
   return {
     server: {
       fs: {
-        /*
-         * Allow serving files when ?url= query param is used. Vite reserves ?url for
-         * its module system, which conflicts with our template import ?url=https://... pattern.
-         */
         strict: false,
       },
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      // ✅ FIX: Добавляем global для браузерной совместимости
+      global: 'globalThis',
     },
     build: {
       target: 'esnext',
-      sourcemap: true,
+      // ✅ FIX: Отключаем sourcemaps в production — экономит память и убирает предупреждения
+      sourcemap: isProduction ? false : true,
+      // ✅ FIX: Увеличиваем лимит чанков чтобы не было предупреждений
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
-        // Externalize undici and util/types for client builds - these are server-only modules
         external: ['undici', 'util/types', 'node:util/types'],
+        output: {
+          // ✅ FIX: Ручное разделение чанков — снижает пиковое потребление памяти
+          manualChunks: {
+            // React и основные библиотеки
+            'vendor-core': ['react', 'react-dom', 'react-router', 'react/jsx-runtime'],
+            // UI компоненты
+            'vendor-ui': [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-tooltip',
+              'framer-motion',
+              'class-variance-authority',
+            ],
+            // Редактор кода
+            'vendor-editor': [
+              '@codemirror/view',
+              '@codemirror/state',
+              '@codemirror/language',
+              '@uiw/codemirror-theme-vscode',
+              '@lezer/highlight',
+            ],
+            // AI SDK
+            'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai', '@ai-sdk/anthropic'],
+            // Утилиты
+            'vendor-utils': ['date-fns', 'diff', 'dompurify', 'shiki', 'nanostores'],
+          },
+        },
+      },
+      // ✅ FIX: Оптимизация для снижения потребления памяти
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: isProduction,
+          drop_debugger: isProduction,
+        },
       },
     },
     resolve: {
@@ -41,13 +78,13 @@ export default defineConfig((config) => {
         '@nanostores/react',
       ],
       alias: {
-        // Provide empty shim for util/types in client builds
         'util/types': 'rollup-plugin-node-polyfills/polyfills/empty',
         'node:util/types': 'rollup-plugin-node-polyfills/polyfills/empty',
+        // ✅ FIX: Алиас для istextorbinary — заменяем проблемный импорт path.basename
+        'istextorbinary/edition-browsers/index.js': 'istextorbinary/edition-node/index.js',
       },
     },
     ssr: {
-      // Use native Node.js modules for SSR - don't polyfill these
       noExternal: [],
       external: [
         'stream',
@@ -62,15 +99,16 @@ export default defineConfig((config) => {
       ],
     },
     plugins: [
+      // ✅ FIX: Добавляем 'path' в include и настраиваем exports для basename
       nodePolyfills({
-        include: ['buffer', 'process', 'util'],
+        include: ['buffer', 'process', 'util', 'path'], // ✅ Добавили path
         globals: {
           Buffer: true,
           process: true,
           global: true,
         },
         protocolImports: true,
-        exclude: ['child_process', 'fs', 'path', 'stream'],
+        exclude: ['child_process', 'fs', 'stream'], // ✅ Убрали path из exclude
       }),
       {
         name: 'buffer-polyfill',
@@ -81,14 +119,30 @@ export default defineConfig((config) => {
               map: null,
             };
           }
-
+          return null;
+        },
+      },
+      // ✅ FIX: Плагин для исправления istextorbinary basename
+      {
+        name: 'fix-istextorbinary',
+        transform(code: string, id: string) {
+          if (id.includes('istextorbinary') && id.includes('edition-browsers')) {
+            // Заменяем проблемный импорт basename на безопасный аналог
+            return {
+              code: code.replace(
+                /import\s*\{\s*basename\s*\}\s*from\s*['"]path['"]/g,
+                `const basename = (p) => p.split('/').pop().split('\\\\').pop()`
+              ),
+              map: null,
+            };
+          }
           return null;
         },
       },
       reactRouter(),
       UnoCSS(),
       tsconfigPaths(),
-      config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
+      isProduction && optimizeCssModules({ apply: 'build' }),
       process.env.ANALYZE
         ? visualizer({
             filename: 'stats.html',
@@ -97,7 +151,7 @@ export default defineConfig((config) => {
             brotliSize: true,
           })
         : false,
-      config.mode === 'production' &&
+      isProduction &&
         process.env.SENTRY_AUTH_TOKEN &&
         sentryVitePlugin({
           org: process.env.SENTRY_ORG,
@@ -127,13 +181,6 @@ export default defineConfig((config) => {
     },
     optimizeDeps: {
       include: [
-        /*
-         * Pre-bundle all known client deps at startup to avoid runtime discovery + page reload.
-         * Without this, Vite discovers ~40 deps during first page load, re-bundles, and forces a reload.
-         *
-         * React + React-DOM MUST be listed here so that all other pre-bundled deps share
-         * the same React internals instead of inlining a separate copy.
-         */
         'react',
         'react-dom',
         'react/jsx-runtime',
@@ -160,7 +207,7 @@ export default defineConfig((config) => {
         'jspdf',
         'jszip',
         'ignore',
-        'istextorbinary',
+        'istextorbinary', // ✅ Оставляем для pre-bundle
         'js-cookie',
         'nanostores',
         'path-browserify',
@@ -170,8 +217,6 @@ export default defineConfig((config) => {
         'remark-gfm',
         'unist-util-visit',
         'isomorphic-git',
-
-        /* Radix UI */
         '@radix-ui/react-checkbox',
         '@radix-ui/react-collapsible',
         '@radix-ui/react-context-menu',
@@ -185,8 +230,6 @@ export default defineConfig((config) => {
         '@radix-ui/react-tabs',
         '@radix-ui/react-tooltip',
         '@radix-ui/react-visually-hidden',
-
-        /* CodeMirror */
         '@codemirror/autocomplete',
         '@codemirror/commands',
         '@codemirror/lang-cpp',
@@ -205,8 +248,6 @@ export default defineConfig((config) => {
         '@codemirror/view',
         '@uiw/codemirror-theme-vscode',
         '@lezer/highlight',
-
-        /* Terminal */
         '@xterm/addon-fit',
         '@xterm/addon-web-links',
         '@xterm/xterm',
