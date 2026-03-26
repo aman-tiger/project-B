@@ -21,8 +21,8 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-5173}:5173"
-    env_file:
-      - .env.local
+    #env_file:
+     #- .env.local
     environment:
       - NODE_ENV=production
       - RUNNING_IN_DOCKER=true
